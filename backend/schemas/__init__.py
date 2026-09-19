@@ -9,6 +9,7 @@ from backend.schemas.sandbox import (
     DockerStatusResponse,
 )
 from backend.schemas.agent import AgentExecutionResponse, AgentWorkflowStatusResponse
+from backend.schemas.finding import FindingResponse, FindingsSummaryResponse
 
 __all__ = [
     "ProjectBase",
@@ -29,6 +30,8 @@ __all__ = [
     "DockerStatusResponse",
     "AgentExecutionResponse",
     "AgentWorkflowStatusResponse",
+    "FindingResponse",
+    "FindingsSummaryResponse",
 ]
 
 

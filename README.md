@@ -1,14 +1,19 @@
 # Codex OS — The Autonomous Software Engineering Sandbox
 
-> **Phase 1: Project Foundation | Phase 2: Codex Execution Engine | Phase 3: Git Worktree System | Phase 4: Docker Sandbox Engine | Phase 5: First Autonomous Agent Team**
+> **Phase 1: Project Foundation | Phase 2: Codex Execution Engine | Phase 3: Git Worktree System | Phase 4: Docker Sandbox Engine | Phase 5: First Autonomous Agent Team | Phase 6: Breaker + Security Agents**
 
-Codex OS is an AI-native software engineering sandbox. The ultimate autonomous workflow will encompass:
-**Understand → Plan → Build → Test → Break → Debug → Evaluate → Improve → Ship**
+Codex OS is an AI-native software engineering sandbox. The ultimate autonomous workflow encompasses:
+**Understand → Plan → Build → Test → Break → Security → Debug → Evaluate → Ship**
 
-Phase 5 introduces the first **Autonomous Agent Team** consisting of:
+Phase 6 extends the **Autonomous Agent Team** to 5 specialized agents:
 1. **Architect Agent**: Inspects repository architecture, dependencies, and constraints to produce a structured implementation plan without modifying code.
 2. **Builder Agent**: Implements the Architect's plan inside its assigned isolated workspace and sandbox without touching the primary repository.
-3. **Tester Agent**: Verifies the implementation by executing tests in its controlled sandbox and outputting structured pass/fail metrics.
+3. **Tester Agent**: Verifies the implementation by executing automated tests in its controlled sandbox and outputting structured pass/fail metrics.
+4. **Breaker Agent**: Actively attacks the implementation by designing and executing adversarial test scenarios (edge cases, empty/null inputs, boundary conditions, invalid state transitions) inside the sandbox, producing structured evidence-backed findings.
+5. **Security Agent**: Inspects the implementation for vulnerabilities, hard-coded secrets, injection vectors, and misconfigurations using a pluggable scanner abstraction and static analysis, honestly reporting scanner availability without fabricating findings.
+
+Sequential Execution Workflow:
+$$\text{Engineering Goal} \longrightarrow \text{Architect} \longrightarrow \text{Builder} \longrightarrow \text{Tester} \longrightarrow \text{Breaker} \longrightarrow \text{Security} \longrightarrow \text{Findings & Report}$$
 
 ---
 
@@ -18,7 +23,7 @@ Phase 5 introduces the first **Autonomous Agent Team** consisting of:
 Codex OS
 ├── backend/                  # FastAPI Python Backend
 │   ├── main.py               # Application entrypoint, CORS, and schema migrations
-│   ├── config.py             # Settings, Codex, Worktrees, & Docker Sandbox config
+│   ├── config.py             # Settings, Codex, Worktrees, Docker Sandbox, & Security config
 │   ├── database.py           # SQLAlchemy engine & health check
 │   ├── codex/                # Phase 2 Codex Execution Layer
 │   │   ├── runner.py         # Subprocess invocation, safety checks, & execution loop
@@ -36,27 +41,36 @@ Codex OS
 │   │   ├── manager.py        # SandboxManager: lifecycle, specs, workspace file preservation
 │   │   ├── models.py         # SandboxStatus enum, CommandResult, SandboxSpec, ContainerState
 │   │   └── exceptions.py     # Sandbox domain exceptions (DockerUnavailable, MountSecurity, etc.)
-│   ├── agents/               # Phase 5 First Autonomous Agent Team
+│   ├── security/             # Phase 6 Security Scanner Abstraction
+│   │   ├── models.py         # ScannerFinding, ScannerReport, AggregatedScanReport dataclasses
+│   │   ├── providers.py      # BaseScannerProvider ABC, Bandit, Pip-audit, Npm-audit, Semgrep, Gitleaks, Pattern
+│   │   ├── scanner.py        # SecurityScannerManager: honest availability discovery & aggregated scanning
+│   │   └── exceptions.py     # Security scanner domain exceptions
+│   ├── agents/               # Autonomous Agent Team (Phases 5 & 6)
 │   │   ├── base.py           # BaseAgent abstract base class
 │   │   ├── context.py        # AgentContext (encapsulated run, workspace, and upstream results)
-│   │   ├── models.py         # AgentType, AgentStatus, AgentResult dataclasses
-│   │   ├── prompts.py        # Specialized prompts for Architect, Builder, and Tester
+│   │   ├── models.py         # AgentType (5 agents), AgentStatus, AgentResult dataclasses
+│   │   ├── prompts.py        # Specialized prompts for Architect, Builder, Tester, Breaker, Security
 │   │   ├── architect.py      # ArchitectAgent (repository inspection & plan generation)
 │   │   ├── builder.py        # BuilderAgent (code implementation inside isolated workspace)
 │   │   ├── tester.py         # TesterAgent (sandbox test execution & structured metrics)
-│   │   ├── manager.py        # AgentManager (sequential coordination, workspace/sandbox isolation)
+│   │   ├── breaker.py        # BreakerAgent (adversarial testing & weakness discovery)
+│   │   ├── security.py       # SecurityAgent (scanner coordination & static vulnerability analysis)
+│   │   ├── manager.py        # AgentManager (sequential 5-agent coordination & finding persistence)
 │   │   └── exceptions.py     # Agent subsystem domain exceptions
 │   ├── models/               # SQLAlchemy Relational Models
 │   │   ├── project.py        # Project model (with workspaces relationship)
 │   │   ├── workspace.py      # Workspace model (name, path, branch, sandboxes relationship)
 │   │   ├── sandbox.py        # Sandbox model (status, container_id, limits, timestamps)
 │   │   ├── agent_execution.py# AgentExecution model (run, agent_type, status, output, workspace, sandbox)
-│   │   └── run.py            # EngineeringRun model (workspace_id, sandbox_id, agent_executions)
+│   │   ├── finding.py        # Finding model (run, agent_exec, type, severity, category, evidence, remediation)
+│   │   └── run.py            # EngineeringRun model (workspace_id, sandbox_id, agent_executions, findings)
 │   ├── schemas/              # Pydantic validation schemas
 │   │   ├── project.py        # Project schemas
 │   │   ├── workspace.py      # WorkspaceCreate & WorkspaceResponse
 │   │   ├── sandbox.py        # SandboxCreate, SandboxResponse, SandboxExecuteRequest, CommandResultResponse
 │   │   ├── agent.py          # AgentExecutionResponse, AgentWorkflowStatusResponse
+│   │   ├── finding.py        # FindingResponse, FindingsSummaryResponse
 │   │   └── run.py            # RunResponse & RunLogsResponse
 │   ├── api/                  # REST API Routers
 │   │   ├── health.py         # GET /api/health
@@ -64,6 +78,7 @@ Codex OS
 │   │   ├── workspaces.py     # CRUD /api/projects/{id}/workspaces & /api/workspaces/{id}
 │   │   ├── sandboxes.py      # Docker status, sandbox lifecycle, command execution
 │   │   ├── agents.py         # Execute agent workflow, list agents, inspect execution, cancel
+│   │   ├── findings.py       # Query findings, filter by type/severity/category, summary metrics
 │   │   └── runs.py           # Project Engineering Runs, Execute, Logs, Cancel
 │   ├── services/             # Business Logic Layer
 │   │   ├── project_service.py # Project, Run, & Sandbox DB queries
@@ -72,14 +87,15 @@ Codex OS
 │       ├── test_execution.py  # Phase 2 execution test suite
 │       ├── test_workspaces.py # Phase 3 worktree test suite (zero-git mock provider)
 │       ├── test_sandbox.py    # Phase 4 sandbox test suite (mount security, lifecycle, APIs)
-│       └── test_agents.py     # Phase 5 agent test suite (context, isolation, sequential workflow)
+│       ├── test_agents.py     # Phase 5 agent test suite (context, isolation, sequential workflow)
+│       └── test_breaker_security.py # Phase 6 Breaker, Security, scanner abstraction, & Finding APIs
 ├── docker/                   # Container definitions
 │   └── Dockerfile.sandbox    # Lightweight non-root sandbox image (python:3.12-slim)
 └── frontend/                 # React + TypeScript + Vite Dashboard
     ├── src/
-    │   ├── api/              # Type-safe API client (projects, runs, workspaces, sandboxes, agents)
-    │   ├── components/       # Header, Sidebar, Cards, Modals, Agent Pipeline, Terminal
-    │   ├── views/            # OverviewView, WorkspacesView, and AgentsView
+    │   ├── api/              # Type-safe API client (projects, runs, workspaces, sandboxes, agents, findings)
+    │   ├── components/       # Header, Sidebar, Cards, Modals, 5-Agent Pipeline, Findings UI, Terminal
+    │   ├── views/            # OverviewView, WorkspacesView, and AgentsView (5-agent profiles & guarantees)
     │   ├── App.tsx           # Application state & tab routing
     │   └── index.css         # GitHub/Linear/VS Code CSS design system & terminal styling
 ```
@@ -121,11 +137,14 @@ cp .env.example .env
 | `DOCKER_SANDBOX_IMAGE` | Base container image for sandboxes | `python:3.12-slim` |
 | `DOCKER_SANDBOX_CPU_LIMIT` | Maximum CPU cores allocated per sandbox | `1.0` |
 | `DOCKER_SANDBOX_MEMORY_LIMIT` | Maximum memory limit per sandbox | `512m` |
-| `DOCKER_SANDBOX_TIMEOUT` | Default command execution timeout in seconds | `120` |
-| `DOCKER_SANDBOX_NETWORK` | Outbound network bridge enabled (`true`/`false`) | `false` |
-| `DOCKER_SANDBOX_PIDS_LIMIT` | Max process limit per container (fork bomb defense) | `64` |
+| `DOCKER_SANDBOX_TIMEOUT` | Default command execution timeout in seconds | `60` |
+| `DOCKER_SANDBOX_NETWORK` | Outbound network bridge enabled (`none` or `bridge`) | `none` |
+| `DOCKER_SANDBOX_PIDS_LIMIT` | Max process limit per container (fork bomb defense) | `128` |
 | `DOCKER_SANDBOX_PROVIDER` | Docker provider (`real` or `mock`) | `real` |
-| `DOCKER_SANDBOX_USER` | Non-root container UID:GID | `1000:1000` |
+| `DOCKER_SANDBOX_USER` | Non-root container UID:GID | Optional |
+| `SECURITY_SCANNING_ENABLED` | Enable automated security scanner engines | `true` |
+| `SECURITY_SCANNERS` | Enabled scanner providers list | `pattern_scanner,bandit,pip-audit,npm-audit,semgrep,gitleaks` |
+| `SECURITY_SCAN_NETWORK` | Network access for security scanners (offline isolation) | `false` |
 
 ---
 
@@ -168,10 +187,10 @@ The frontend dashboard opens at `http://localhost:5173`.
 
 ## Running Backend Tests
 
-Run the full automated test suite (23 tests across 4 suites, without executing any git commands):
+Run the full automated test suite (32 tests across 5 suites, without executing any git commands):
 
 ```bash
-# Run all Phase 2, Phase 3, Phase 4, and Phase 5 tests
+# Run all Phase 2, Phase 3, Phase 4, Phase 5, and Phase 6 tests
 python -m pytest backend/tests/ -v
 ```
 
@@ -199,7 +218,7 @@ Tests cover:
    - Workspace file preservation across container destructions
    - Command execution timeout enforcement and output capture
    - Full REST API integration flow with `MockDockerProvider`
-4. **First Autonomous Agent Team (Phase 5)**:
+4. **Autonomous Agent Team (Phase 5)**:
    - AgentContext encapsulation and upstream result passing
    - Architect Agent plan generation without source code mutations
    - Builder Agent plan ingestion and workspace execution
@@ -208,6 +227,14 @@ Tests cover:
    - Sequential workflow completion (`Architect` → `Builder` → `Tester`)
    - Fail-fast error handling halting workflow without automatic retries
    - Full REST API integration flow for agent team execution and cancellation
+5. **Breaker & Security Agents (Phase 6)**:
+   - Breaker Agent adversarial test generation, execution, and structured finding extraction
+   - Security Agent scanner discovery, unavailable scanner honesty, and static vulnerability parsing
+   - Built-in regex pattern scanner for secrets (AWS, private keys, API keys), SQL injection, command injection, and path traversal
+   - Structured `Finding` model database persistence and cascade deletion
+   - Findings REST APIs: retrieval, multi-dimensional filtering (`type`, `severity`, `category`), and summary distribution
+   - Complete 5-agent sequential workflow (`Architect` → `Builder` → `Tester` → `Breaker` → `Security`)
+   - Fail-fast policy verification: Builder failure halts before Tester/Breaker/Security; Tester failure halts before Breaker/Security; Breaker failure halts before Security
 
 ---
 
@@ -219,9 +246,12 @@ Tests cover:
 Architect Agent  ──>  Workspace A (run-{id}-architect)  ──>  Sandbox A
 Builder Agent    ──>  Workspace B (run-{id}-builder)    ──>  Sandbox B
 Tester Agent     ──>  Workspace C (run-{id}-tester)     ──>  Sandbox C
+Breaker Agent    ──>  Workspace D (run-{id}-breaker)    ──>  Sandbox D
+Security Agent   ──>  Workspace E (run-{id}-security)   ──>  Sandbox E
 ```
 
 Agents never share a writable worktree directory. Each agent operates within its dedicated workspace and sandbox.
+Breaker and Security operate strictly in read/test/scan mode and do NOT mutate production implementation files.
 
 ### Sequential Workflow Flow
 
@@ -236,9 +266,34 @@ Builder Agent    ──>  Implementation Summary
        │
        ▼
 Tester Agent     ──>  Verified Test Report (Passed / Failed)
+       │
+       ▼
+Breaker Agent    ──>  Adversarial Test Findings (Edge Cases, Boundaries)
+       │
+       ▼
+Security Agent   ──>  Security Findings (Secrets, Injections, Vulnerabilities)
 ```
 
-**Fail-Fast Policy**: If an agent fails at any stage, the workflow immediately halts, subsequent agents are not executed, and the engineering run is marked `FAILED`. No automatic retries occur in Phase 5.
+**Fail-Fast Policy**: If an agent fails at any stage, the workflow immediately halts, subsequent agents are not executed, and the engineering run is marked `FAILED`. No automatic retries occur in Phase 6.
+
+---
+
+## Structured Finding Model
+
+Every discovered weakness or security vulnerability is stored as an evidence-backed record:
+
+| Field | Description | Example |
+| :--- | :--- | :--- |
+| `type` | Finding engine source | `BREAKER` or `SECURITY` |
+| `severity` | Impact rating | `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, `INFO` |
+| `category` | Technical weakness category | `INPUT_VALIDATION`, `SECRET`, `INJECTION`, `EDGE_CASE`, etc. |
+| `title` | Concise descriptive title | `Application crashes on empty input array` |
+| `file_path` | Source file location | `src/parser.py` |
+| `line_number` | Line number where applicable | `42` |
+| `evidence` | Verifiable execution output or code snippet | `IndexError: list index out of range at parser.py:42` |
+| `reproduction` | Exact command or payload to reproduce | `parser.parse([])` |
+| `remediation` | Recommended fix for the Builder | `Validate input array length before accessing elements.` |
+| `status` | Lifecycle status | `OPEN` |
 
 ---
 
@@ -266,11 +321,16 @@ Tester Agent     ──>  Verified Test Report (Passed / Failed)
 - `DELETE /api/sandboxes/{id}` — Remove container (preserves workspace files).
 - `POST /api/sandboxes/{id}/execute` — Run command in `/workspace` with timeout & output capture.
 
-### Autonomous Agent Team (Phase 5)
-- `POST /api/runs/{run_id}/agents/execute` — Start sequential agent workflow (Architect $\rightarrow$ Builder $\rightarrow$ Tester).
+### Autonomous Agent Team (Phases 5 & 6)
+- `POST /api/runs/{run_id}/agents/execute` — Start sequential 5-agent workflow (Architect $\rightarrow$ Builder $\rightarrow$ Tester $\rightarrow$ Breaker $\rightarrow$ Security).
 - `GET /api/runs/{run_id}/agents` — List all agent executions and step statuses for a run.
 - `GET /api/agent-executions/{agent_execution_id}` — Get detailed agent output, input summary, and diagnostics.
 - `POST /api/runs/{run_id}/agents/cancel` — Cancel active agent workflow safely.
+
+### Findings (Phase 6)
+- `GET /api/runs/{run_id}/findings` — Retrieve findings for a run, with optional query filters (`type`, `severity`, `category`).
+- `GET /api/runs/{run_id}/findings/summary` — Retrieve aggregated findings distribution (total, breaker, security, by severity, by category).
+- `GET /api/runs/{run_id}/findings/{finding_id}` — Get single finding details with evidence, reproduction, and remediation.
 
 ### Engineering Runs
 - `GET /api/projects/{id}/runs` — List runs for a project.
@@ -282,10 +342,11 @@ Tester Agent     ──>  Verified Test Report (Passed / Failed)
 
 ---
 
-## Out of Scope for Phase 5 (Scheduled for Future Phases)
+## Out of Scope for Phase 6 (Scheduled for Future Phases)
 
-- Breaker Agent, Security Agent, Judge Agent
-- Phase 6: Code Evaluation & Benchmark Pass Rate Scoring
-- Phase 7: Autonomous Retry Loops & Recovery Orchestration
-- Automated Branch Merging & Pull Request Generation
-- Real-time WebSockets
+- **Judge Agent** (Phase 8: Evaluation & pass-rate scoring)
+- **Engineering Score** (Phase 8)
+- **Autonomous Retry & Recovery Loops** (Phase 7: Self-healing Builder loops based on Breaker/Security findings)
+- **Automatic Fix Application** (Breaker and Security identify weaknesses; Builder remains responsible for fixes in Phase 7)
+- **Automated Branch Merging & Pull Request Generation**
+- **Real-time WebSockets**

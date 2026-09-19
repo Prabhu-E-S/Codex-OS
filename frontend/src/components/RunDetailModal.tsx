@@ -17,8 +17,11 @@ import {
   ChevronDown,
   ChevronRight,
   Box,
+  Zap,
+  Lock,
+  ShieldAlert,
 } from 'lucide-react';
-import { EngineeringRun, RunLogsResponse, AgentExecution } from '../api/types';
+import { EngineeringRun, RunLogsResponse, AgentExecution, Finding, FindingsSummary } from '../api/types';
 import { api } from '../api/client';
 
 interface RunDetailModalProps {
@@ -36,12 +39,17 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
 }) => {
   const [logs, setLogs] = useState<RunLogsResponse | null>(null);
   const [agents, setAgents] = useState<AgentExecution[]>([]);
+  const [findings, setFindings] = useState<Finding[]>([]);
+  const [findingsSummary, setFindingsSummary] = useState<FindingsSummary | null>(null);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [loadingAgents, setLoadingAgents] = useState(false);
+  const [loadingFindings, setLoadingFindings] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [executingAgentTeam, setExecutingAgentTeam] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [expandedAgentId, setExpandedAgentId] = useState<number | null>(null);
+  const [expandedFindingId, setExpandedFindingId] = useState<number | null>(null);
+  const [findingTypeFilter, setFindingTypeFilter] = useState<'ALL' | 'BREAKER' | 'SECURITY'>('ALL');
 
   const terminalEndRef = useRef<HTMLDivElement>(null);
 
@@ -52,19 +60,23 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
     }
   }, [logs, run]);
 
-  // Fetch latest logs, status, and agent executions
+  // Fetch latest logs, status, agent executions, and findings
   const fetchLogsAndStatus = async (runId: number) => {
     try {
-      const [logsData, updatedRun, agentList] = await Promise.all([
+      const [logsData, updatedRun, agentList, findingsList, summaryData] = await Promise.all([
         api.getRunLogs(runId),
         api.getRun(runId),
         api.getRunAgents(runId).catch(() => []),
+        api.getRunFindings(runId).catch(() => []),
+        api.getRunFindingsSummary(runId).catch(() => null),
       ]);
       setLogs(logsData);
       setAgents(agentList);
+      setFindings(findingsList);
+      setFindingsSummary(summaryData);
       onRunUpdated(updatedRun);
     } catch (err) {
-      console.error('Failed to fetch run logs and agents:', err);
+      console.error('Failed to fetch run logs, agents, and findings:', err);
     }
   };
 
@@ -73,14 +85,19 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
     if (isOpen && run) {
       setLoadingLogs(true);
       setLoadingAgents(true);
+      setLoadingFindings(true);
       fetchLogsAndStatus(run.id).finally(() => {
         setLoadingLogs(false);
         setLoadingAgents(false);
+        setLoadingFindings(false);
       });
     } else {
       setLogs(null);
       setAgents([]);
+      setFindings([]);
+      setFindingsSummary(null);
       setExpandedAgentId(null);
+      setExpandedFindingId(null);
     }
   }, [isOpen, run?.id]);
 
@@ -210,6 +227,22 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
     }
   };
 
+  const getSeverityBadgeStyle = (severity: string) => {
+    switch (severity.toUpperCase()) {
+      case 'CRITICAL':
+        return { bg: '#FEF2F2', color: '#DC2626', border: '#FECACA' };
+      case 'HIGH':
+        return { bg: '#FFF7ED', color: '#EA580C', border: '#FFEDD5' };
+      case 'MEDIUM':
+        return { bg: '#FFFBEB', color: '#D97706', border: '#FDE68A' };
+      case 'LOW':
+        return { bg: '#EFF6FF', color: '#2563EB', border: '#BFDBFE' };
+      case 'INFO':
+      default:
+        return { bg: '#F8FAFC', color: '#64748B', border: '#E2E8F0' };
+    }
+  };
+
   const getAgentIcon = (type: string) => {
     switch (type) {
       case 'ARCHITECT':
@@ -218,6 +251,10 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
         return <Hammer size={15} color="#059669" />;
       case 'TESTER':
         return <CheckCheck size={15} color="#D97706" />;
+      case 'BREAKER':
+        return <Zap size={15} color="#DC2626" />;
+      case 'SECURITY':
+        return <Lock size={15} color="#7C3AED" />;
       default:
         return <Bot size={15} color="#64748B" />;
     }
@@ -321,7 +358,7 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
                     border: '1px solid #BFDBFE',
                   }}
                 >
-                  Architect → Builder → Tester
+                  Architect → Builder → Tester → Breaker → Security
                 </span>
               </div>
 
@@ -445,6 +482,390 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
               </div>
             )}
           </div>
+
+          {/* ADVERSARIAL & SECURITY FINDINGS (Phase 6) */}
+          {(() => {
+            const filteredFindings = findings.filter((f) => {
+              if (findingTypeFilter === 'BREAKER') return f.type === 'BREAKER';
+              if (findingTypeFilter === 'SECURITY') return f.type === 'SECURITY';
+              return true;
+            });
+
+            const breakerCount = findings.filter((f) => f.type === 'BREAKER').length;
+            const securityCount = findings.filter((f) => f.type === 'SECURITY').length;
+            const critHighCount = findings.filter(
+              (f) => f.severity === 'CRITICAL' || f.severity === 'HIGH'
+            ).length;
+
+            return (
+              <div
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  border: '1px solid #E2E8F0',
+                  borderRadius: '8px',
+                  padding: '14px',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+                }}
+              >
+                {/* Header */}
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '12px',
+                    flexWrap: 'wrap',
+                    gap: '8px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <ShieldAlert size={16} color="#DC2626" />
+                    <span style={{ fontWeight: 600, fontSize: '13px', color: '#0F172A' }}>
+                      Adversarial & Security Findings
+                    </span>
+                    {loadingFindings && (
+                      <RefreshCw size={11} className="spinning" color="#94A3B8" />
+                    )}
+                    <span
+                      style={{
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        backgroundColor: '#FEF2F2',
+                        color: '#DC2626',
+                        border: '1px solid #FECACA',
+                      }}
+                    >
+                      Phase 6
+                    </span>
+                  </div>
+
+                  {/* Filter Pills */}
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    {(['ALL', 'BREAKER', 'SECURITY'] as const).map((tab) => (
+                      <button
+                        key={tab}
+                        type="button"
+                        onClick={() => setFindingTypeFilter(tab)}
+                        style={{
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          border: findingTypeFilter === tab ? '1px solid #2563EB' : '1px solid #E2E8F0',
+                          backgroundColor: findingTypeFilter === tab ? '#EFF6FF' : '#FFFFFF',
+                          color: findingTypeFilter === tab ? '#2563EB' : '#64748B',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {tab === 'ALL'
+                          ? `All (${findings.length})`
+                          : tab === 'BREAKER'
+                          ? `Breaker (${breakerCount})`
+                          : `Security (${securityCount})`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Metrics Overview Cards */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                    gap: '8px',
+                    marginBottom: '12px',
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: '8px 10px',
+                      backgroundColor: '#F8FAFC',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '6px',
+                    }}
+                  >
+                    <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>
+                      Total Findings
+                    </div>
+                    <div style={{ fontSize: '16px', fontWeight: 700, color: '#0F172A' }}>
+                      {findings.length}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      padding: '8px 10px',
+                      backgroundColor: '#FEF2F2',
+                      border: '1px solid #FECACA',
+                      borderRadius: '6px',
+                    }}
+                  >
+                    <div style={{ fontSize: '10px', color: '#DC2626', fontWeight: 600, textTransform: 'uppercase' }}>
+                      Breaker (Adversarial)
+                    </div>
+                    <div style={{ fontSize: '16px', fontWeight: 700, color: '#DC2626' }}>
+                      {breakerCount}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      padding: '8px 10px',
+                      backgroundColor: '#F5F3FF',
+                      border: '1px solid #DDD6FE',
+                      borderRadius: '6px',
+                    }}
+                  >
+                    <div style={{ fontSize: '10px', color: '#7C3AED', fontWeight: 600, textTransform: 'uppercase' }}>
+                      Security (Audit)
+                    </div>
+                    <div style={{ fontSize: '16px', fontWeight: 700, color: '#7C3AED' }}>
+                      {securityCount}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      padding: '8px 10px',
+                      backgroundColor: '#FFF7ED',
+                      border: '1px solid #FFEDD5',
+                      borderRadius: '6px',
+                    }}
+                  >
+                    <div style={{ fontSize: '10px', color: '#EA580C', fontWeight: 600, textTransform: 'uppercase' }}>
+                      Critical / High
+                    </div>
+                    <div style={{ fontSize: '16px', fontWeight: 700, color: '#EA580C' }}>
+                      {critHighCount}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Category Tags Breakdown */}
+                {findingsSummary && Object.keys(findingsSummary.by_category).length > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                    <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 500 }}>Categories:</span>
+                    {Object.entries(findingsSummary.by_category).map(([cat, count]) => (
+                      <span
+                        key={cat}
+                        style={{
+                          fontSize: '10px',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          backgroundColor: '#F1F5F9',
+                          border: '1px solid #E2E8F0',
+                          color: '#475569',
+                          fontFamily: 'JetBrains Mono, monospace',
+                        }}
+                      >
+                        {cat} ({count})
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Findings List */}
+                {filteredFindings.length === 0 ? (
+                  <div
+                    style={{
+                      padding: '12px',
+                      textAlign: 'center',
+                      fontSize: '12px',
+                      color: '#64748B',
+                      backgroundColor: '#F8FAFC',
+                      borderRadius: '6px',
+                      border: '1px solid #E2E8F0',
+                    }}
+                  >
+                    {findings.length === 0
+                      ? 'No adversarial or security weaknesses found yet. Run the autonomous agent team to perform Breaker and Security audits.'
+                      : `No findings matching filter "${findingTypeFilter}".`}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {filteredFindings.map((finding) => {
+                      const isExpanded = expandedFindingId === finding.id;
+                      const sevStyle = getSeverityBadgeStyle(finding.severity);
+
+                      return (
+                        <div
+                          key={finding.id}
+                          style={{
+                            border: '1px solid #E2E8F0',
+                            borderRadius: '6px',
+                            backgroundColor: '#FFFFFF',
+                            overflow: 'hidden',
+                          }}
+                        >
+                          <div
+                            onClick={() => setExpandedFindingId(isExpanded ? null : finding.id)}
+                            style={{
+                              padding: '10px 12px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              cursor: 'pointer',
+                              backgroundColor: isExpanded ? '#F8FAFC' : '#FFFFFF',
+                              transition: 'background-color 0.15s ease',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              {isExpanded ? (
+                                <ChevronDown size={14} color="#64748B" />
+                              ) : (
+                                <ChevronRight size={14} color="#64748B" />
+                              )}
+
+                              {/* Severity Badge */}
+                              <span
+                                style={{
+                                  fontSize: '10px',
+                                  fontWeight: 700,
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  backgroundColor: sevStyle.bg,
+                                  color: sevStyle.color,
+                                  border: `1px solid ${sevStyle.border}`,
+                                }}
+                              >
+                                {finding.severity}
+                              </span>
+
+                              {/* Type Badge */}
+                              <span
+                                style={{
+                                  fontSize: '10px',
+                                  fontWeight: 600,
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  backgroundColor: finding.type === 'BREAKER' ? '#FEF2F2' : '#F5F3FF',
+                                  color: finding.type === 'BREAKER' ? '#DC2626' : '#7C3AED',
+                                  border: `1px solid ${
+                                    finding.type === 'BREAKER' ? '#FECACA' : '#DDD6FE'
+                                  }`,
+                                }}
+                              >
+                                {finding.type}
+                              </span>
+
+                              {/* Title */}
+                              <span style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A' }}>
+                                {finding.title}
+                              </span>
+
+                              {/* File & Line */}
+                              {finding.file_path && (
+                                <span
+                                  style={{
+                                    fontSize: '11px',
+                                    fontFamily: 'JetBrains Mono, monospace',
+                                    color: '#64748B',
+                                    backgroundColor: '#F1F5F9',
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                    border: '1px solid #E2E8F0',
+                                  }}
+                                >
+                                  {finding.file_path}
+                                  {finding.line_number ? `:${finding.line_number}` : ''}
+                                </span>
+                              )}
+                            </div>
+
+                            <span
+                              style={{
+                                fontSize: '10px',
+                                fontWeight: 600,
+                                color: '#64748B',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.04em',
+                              }}
+                            >
+                              {finding.category}
+                            </span>
+                          </div>
+
+                          {isExpanded && (
+                            <div
+                              style={{
+                                padding: '12px',
+                                borderTop: '1px solid #E2E8F0',
+                                backgroundColor: '#F8FAFC',
+                                fontSize: '12px',
+                              }}
+                            >
+                              <div style={{ marginBottom: '8px', color: '#334155', lineHeight: 1.5 }}>
+                                <strong>Description: </strong>
+                                {finding.description}
+                              </div>
+
+                              {finding.evidence && (
+                                <div style={{ marginBottom: '8px' }}>
+                                  <div
+                                    style={{
+                                      fontSize: '11px',
+                                      fontWeight: 600,
+                                      color: '#0F172A',
+                                      marginBottom: '4px',
+                                    }}
+                                  >
+                                    Evidence:
+                                  </div>
+                                  <div
+                                    style={{
+                                      backgroundColor: '#0F172A',
+                                      color: '#F8FAFC',
+                                      padding: '8px 10px',
+                                      borderRadius: '6px',
+                                      fontSize: '11px',
+                                      fontFamily: 'JetBrains Mono, monospace',
+                                      whiteSpace: 'pre-wrap',
+                                      lineHeight: 1.4,
+                                    }}
+                                  >
+                                    {finding.evidence}
+                                  </div>
+                                </div>
+                              )}
+
+                              {finding.reproduction && (
+                                <div style={{ marginBottom: '8px', color: '#475569' }}>
+                                  <strong style={{ color: '#0F172A' }}>Reproduction: </strong>
+                                  <span
+                                    style={{
+                                      fontFamily: 'JetBrains Mono, monospace',
+                                      fontSize: '11.5px',
+                                      color: '#0369A1',
+                                    }}
+                                  >
+                                    {finding.reproduction}
+                                  </span>
+                                </div>
+                              )}
+
+                              {finding.remediation && (
+                                <div
+                                  style={{
+                                    padding: '8px 10px',
+                                    backgroundColor: '#ECFDF5',
+                                    border: '1px solid #A7F3D0',
+                                    borderRadius: '6px',
+                                    color: '#065F46',
+                                  }}
+                                >
+                                  <strong>Remediation: </strong>
+                                  {finding.remediation}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Telemetry metadata */}
           <div

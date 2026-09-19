@@ -14,6 +14,8 @@ import {
   DockerStatusResponse,
   AgentExecution,
   AgentWorkflowStatusResponse,
+  Finding,
+  FindingsSummary,
 } from './types';
 
 
@@ -159,5 +161,22 @@ export const api = {
     request<AgentWorkflowStatusResponse>(`/runs/${runId}/agents/cancel`, {
       method: 'POST',
     }),
+
+  // Adversarial & Security Findings (Phase 6)
+  getRunFindings: (
+    runId: number,
+    filters?: { type?: string; severity?: string; category?: string }
+  ): Promise<Finding[]> => {
+    const params = new URLSearchParams();
+    if (filters?.type) params.append('type', filters.type);
+    if (filters?.severity) params.append('severity', filters.severity);
+    if (filters?.category) params.append('category', filters.category);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return request<Finding[]>(`/runs/${runId}/findings${qs}`);
+  },
+  getRunFindingsSummary: (runId: number): Promise<FindingsSummary> =>
+    request<FindingsSummary>(`/runs/${runId}/findings/summary`),
+  getFinding: (runId: number, findingId: number): Promise<Finding> =>
+    request<Finding>(`/runs/${runId}/findings/${findingId}`),
 };
 

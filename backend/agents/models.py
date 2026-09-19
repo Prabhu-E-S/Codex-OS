@@ -7,6 +7,8 @@ class AgentType(str, Enum):
     ARCHITECT = "ARCHITECT"
     BUILDER = "BUILDER"
     TESTER = "TESTER"
+    BREAKER = "BREAKER"
+    SECURITY = "SECURITY"
 
 class AgentStatus(str, Enum):
     PENDING = "PENDING"

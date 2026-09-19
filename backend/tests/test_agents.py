@@ -202,8 +202,10 @@ def test_sequential_workflow_and_agent_isolation(setup_teardown):
     arch_res = make_exec_result(RunStatus.COMPLETED, 0, "Architect Plan: build payment gateway", "")
     build_res = make_exec_result(RunStatus.COMPLETED, 0, "Builder Implemented: added gateway.py", "")
     test_res = make_exec_result(RunStatus.COMPLETED, 0, "Tests Run: 5\nPassed: 5\nFailed: 0\nStatus: PASSED", "")
+    breaker_res = make_exec_result(RunStatus.COMPLETED, 0, "Tests Generated: 2\nTests Executed: 2\nTests Passed: 2\nTests Failed: 0\n```json\n[]\n```", "")
+    sec_res = make_exec_result(RunStatus.COMPLETED, 0, "Security Posture Summary: No vulnerabilities found.\n```json\n[]\n```", "")
 
-    side_effects = [arch_res, build_res, test_res]
+    side_effects = [arch_res, build_res, test_res, breaker_res, sec_res]
 
     with patch("backend.codex.runner.CodexRunner.execute", side_effect=side_effects):
         with patch("backend.workspace.manager.get_git_provider", return_value=MockGitWorkspaceProvider()):
@@ -212,24 +214,24 @@ def test_sequential_workflow_and_agent_isolation(setup_teardown):
 
     db.refresh(run)
     assert run.status == RunStatus.COMPLETED.value
-    assert "Agent Team Workflow Completed" in run.stdout
+    assert "Autonomous Agent Team Workflow Completed" in run.stdout
 
     # Verify agent executions
     execs = db.query(AgentExecution).filter(AgentExecution.engineering_run_id == run.id).all()
-    assert len(execs) == 3
-    assert [e.agent_type for e in execs] == ["ARCHITECT", "BUILDER", "TESTER"]
+    assert len(execs) == 5
+    assert [e.agent_type for e in execs] == ["ARCHITECT", "BUILDER", "TESTER", "BREAKER", "SECURITY"]
     assert all(e.status == AgentStatus.COMPLETED.value for e in execs)
 
     # Verify workspace isolation: agents must not share the same workspace
     ws_ids = [e.workspace_id for e in execs]
-    assert len(set(ws_ids)) == 3, f"Agents must operate in separate workspaces, got: {ws_ids}"
+    assert len(set(ws_ids)) == 5, f"Agents must operate in separate workspaces, got: {ws_ids}"
     db.close()
 
 
 def test_workflow_halts_on_failure_no_retries(setup_teardown):
     """
     Verify that if an agent fails (e.g. Builder), the workflow HALTS immediately.
-    Tester must NOT be executed, and no automatic retries occur.
+    Tester, Breaker, and Security must NOT be executed, and no automatic retries occur.
     """
     temp_dir = setup_teardown
     db = SessionLocal()
@@ -254,10 +256,12 @@ def test_workflow_halts_on_failure_no_retries(setup_teardown):
     assert "Builder Agent failed" in run.error_message
 
     execs = db.query(AgentExecution).filter(AgentExecution.engineering_run_id == run.id).order_by(AgentExecution.id.asc()).all()
-    assert len(execs) == 3
+    assert len(execs) == 5
     assert execs[0].status == AgentStatus.COMPLETED.value
     assert execs[1].status == AgentStatus.FAILED.value
     assert execs[2].status == AgentStatus.PENDING.value  # Tester was NOT executed!
+    assert execs[3].status == AgentStatus.PENDING.value  # Breaker was NOT executed!
+    assert execs[4].status == AgentStatus.PENDING.value  # Security was NOT executed!
     db.close()
 
 
@@ -280,14 +284,14 @@ def test_agent_rest_api_flow(setup_teardown):
     assert resp.status_code == 200
     data = resp.json()
     assert data["run_id"] == run_id
-    assert len(data["agents"]) == 3
+    assert len(data["agents"]) == 5
     assert data["agents"][0]["agent_type"] == "ARCHITECT"
 
     # 2. Get run agents
     resp = client.get(f"/api/runs/{run_id}/agents")
     assert resp.status_code == 200
     agents_list = resp.json()
-    assert len(agents_list) == 3
+    assert len(agents_list) == 5
 
     # 3. Get single agent execution
     exec_id = agents_list[0]["id"]

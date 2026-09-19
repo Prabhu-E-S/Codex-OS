@@ -37,6 +37,7 @@ class AgentExecution(Base):
     engineering_run = relationship("EngineeringRun", back_populates="agent_executions")
     workspace = relationship("Workspace")
     sandbox = relationship("Sandbox")
+    findings = relationship("Finding", back_populates="agent_execution")
 
     @property
     def workspace_name(self) -> str | None:

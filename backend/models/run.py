@@ -43,6 +43,12 @@ class EngineeringRun(Base):
         cascade="all, delete-orphan",
         order_by="AgentExecution.id"
     )
+    findings = relationship(
+        "Finding",
+        back_populates="engineering_run",
+        cascade="all, delete-orphan",
+        order_by="Finding.id"
+    )
 
     @property
     def workspace_name(self) -> str | None:

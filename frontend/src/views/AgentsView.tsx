@@ -8,6 +8,8 @@ import {
   FolderGit2,
   Box,
   Plus,
+  Zap,
+  Lock,
 } from 'lucide-react';
 import { Project } from '../api/types';
 
@@ -72,6 +74,40 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
       sandboxModel: 'Isolated Container Environment',
       accentColor: '#D97706',
     },
+    {
+      id: 'breaker',
+      name: 'Breaker Agent',
+      badge: 'Step 4: Adversarial Testing',
+      icon: <Zap size={20} color="#DC2626" />,
+      role: 'Adversarial Testing & Weakness Discovery',
+      description:
+        'Actively attempts to break the implementation by designing adversarial scenarios (empty/null inputs, boundary conditions, malformed types, invalid state transitions) inside the sandbox.',
+      rules: [
+        'Asks: "How can I make this implementation fail?"',
+        'Executes targeted adversarial tests inside isolated Docker sandbox',
+        'Produces structured evidence-backed findings; strictly read-only on source code',
+      ],
+      workspaceModel: 'Dedicated Workspace (Adversarial Testing Worktree)',
+      sandboxModel: 'Isolated Container Environment',
+      accentColor: '#DC2626',
+    },
+    {
+      id: 'security',
+      name: 'Security Agent',
+      badge: 'Step 5: Security & Audit',
+      icon: <Lock size={20} color="#7C3AED" />,
+      role: 'Vulnerability Analysis & Secret Detection',
+      description:
+        'Inspects the implementation for hard-coded secrets, command injection, SQL injection, path traversal, and misconfigurations using automated scanners and static analysis.',
+      rules: [
+        'Coordinates scanner engines (Bandit, pip-audit, npm-audit, Semgrep, Gitleaks, regex pattern scanner)',
+        'Honestly reports scanner availability without fabricating false vulnerabilities',
+        'Produces evidence-backed security findings; strictly read-only on source code',
+      ],
+      workspaceModel: 'Dedicated Workspace (Security Audit Worktree)',
+      sandboxModel: 'Isolated Container Environment',
+      accentColor: '#7C3AED',
+    },
   ];
 
   return (
@@ -94,13 +130,13 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
                 border: '1px solid #BFDBFE',
               }}
             >
-              Phase 5
+              Phase 6
             </span>
           </div>
           <p style={{ fontSize: '13px', color: '#64748B', margin: 0 }}>
             {currentProject
-              ? `Coordinated sequential agent pipeline for project "${currentProject.name}".`
-              : 'Coordinated sequential agent team executing in isolated workspaces and sandboxes.'}
+              ? `Coordinated 5-agent sequential pipeline for project "${currentProject.name}".`
+              : 'Coordinated 5-agent autonomous engineering team executing in isolated workspaces and sandboxes.'}
           </p>
         </div>
 
@@ -128,48 +164,64 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
         }}
       >
         <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
-          Sequential Execution Pipeline
+          Sequential 5-Agent Execution Pipeline
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ padding: '6px 10px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '6px', fontSize: '12px', fontWeight: 600, color: '#0F172A' }}>
-              Engineering Goal
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ padding: '6px 9px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '6px', fontSize: '11.5px', fontWeight: 600, color: '#0F172A' }}>
+              Goal
             </div>
-            <ArrowRight size={14} color="#94A3B8" />
+            <ArrowRight size={13} color="#94A3B8" />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ padding: '6px 10px', backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '6px', fontSize: '12px', fontWeight: 600, color: '#2563EB', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Compass size={14} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ padding: '6px 9px', backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '6px', fontSize: '11.5px', fontWeight: 600, color: '#2563EB', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <Compass size={13} />
               <span>Architect</span>
             </div>
-            <ArrowRight size={14} color="#94A3B8" />
+            <ArrowRight size={13} color="#94A3B8" />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ padding: '6px 10px', backgroundColor: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '6px', fontSize: '12px', fontWeight: 600, color: '#059669', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Hammer size={14} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ padding: '6px 9px', backgroundColor: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '6px', fontSize: '11.5px', fontWeight: 600, color: '#059669', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <Hammer size={13} />
               <span>Builder</span>
             </div>
-            <ArrowRight size={14} color="#94A3B8" />
+            <ArrowRight size={13} color="#94A3B8" />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ padding: '6px 10px', backgroundColor: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '6px', fontSize: '12px', fontWeight: 600, color: '#D97706', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <CheckCheck size={14} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ padding: '6px 9px', backgroundColor: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '6px', fontSize: '11.5px', fontWeight: 600, color: '#D97706', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <CheckCheck size={13} />
               <span>Tester</span>
             </div>
-            <ArrowRight size={14} color="#94A3B8" />
+            <ArrowRight size={13} color="#94A3B8" />
           </div>
 
-          <div style={{ padding: '6px 10px', backgroundColor: '#F1F5F9', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12px', fontWeight: 600, color: '#334155' }}>
-            Verified Results
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ padding: '6px 9px', backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '6px', fontSize: '11.5px', fontWeight: 600, color: '#DC2626', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <Zap size={13} />
+              <span>Breaker</span>
+            </div>
+            <ArrowRight size={13} color="#94A3B8" />
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ padding: '6px 9px', backgroundColor: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: '6px', fontSize: '11.5px', fontWeight: 600, color: '#7C3AED', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <Lock size={13} />
+              <span>Security</span>
+            </div>
+            <ArrowRight size={13} color="#94A3B8" />
+          </div>
+
+          <div style={{ padding: '6px 9px', backgroundColor: '#F1F5F9', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '11.5px', fontWeight: 600, color: '#334155' }}>
+            Findings & Report
           </div>
         </div>
       </div>
 
       {/* Agent Profiles Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginBottom: '24px' }}>
         {agents.map((agent) => (
           <div
             key={agent.id}
@@ -265,26 +317,26 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
           <Shield size={16} color="#059669" />
           <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A', margin: 0 }}>
-            Phase 5 Architectural Guarantees & Constraints
+            Phase 6 Architectural Guarantees & Constraints
           </h3>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', fontSize: '12px', color: '#475569' }}>
           <div>
             <div style={{ fontWeight: 600, color: '#0F172A', marginBottom: '2px' }}>Strict Agent Isolation</div>
             <div style={{ color: '#64748B', fontSize: '11px', lineHeight: 1.4 }}>
-              Agents never share writable directories. Each agent receives a dedicated worktree workspace and sandbox.
+              Agents never share writable directories. Breaker and Security operate in dedicated worktree workspaces and sandboxes without modifying production code.
             </div>
           </div>
           <div>
-            <div style={{ fontWeight: 600, color: '#0F172A', marginBottom: '2px' }}>Zero Git Operations by Agents</div>
+            <div style={{ fontWeight: 600, color: '#0F172A', marginBottom: '2px' }}>Honest Tool Discovery & No Fake Results</div>
             <div style={{ color: '#64748B', fontSize: '11px', lineHeight: 1.4 }}>
-              Agents cannot execute Git commands. Version control and worktree isolation are managed exclusively by Codex OS.
+              Security scanners honestly report availability without pretending missing tools succeeded or fabricating vulnerability findings.
             </div>
           </div>
           <div>
             <div style={{ fontWeight: 600, color: '#0F172A', marginBottom: '2px' }}>Fail-Fast Policy (No Retries)</div>
             <div style={{ color: '#64748B', fontSize: '11px', lineHeight: 1.4 }}>
-              If an agent fails, the workflow immediately halts. Automatic retries and loops are reserved for future phases.
+              If any agent fails, the workflow immediately halts. Automatic retries and loops are reserved for future phases.
             </div>
           </div>
         </div>

@@ -130,7 +130,7 @@ export interface HealthResponse {
   database_error?: string | null;
 }
 
-export type AgentType = 'ARCHITECT' | 'BUILDER' | 'TESTER';
+export type AgentType = 'ARCHITECT' | 'BUILDER' | 'TESTER' | 'BREAKER' | 'SECURITY';
 
 export type AgentStatus = 'PENDING' | 'STARTING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
 
@@ -159,4 +159,54 @@ export interface AgentWorkflowStatusResponse {
   active_agent: string | null;
   agents: AgentExecution[];
 }
+
+export type FindingType = 'BREAKER' | 'SECURITY';
+
+export type FindingSeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
+
+export type FindingCategory =
+  | 'EDGE_CASE'
+  | 'INPUT_VALIDATION'
+  | 'ERROR_HANDLING'
+  | 'API_BEHAVIOR'
+  | 'DATA_HANDLING'
+  | 'REGRESSION'
+  | 'PERFORMANCE'
+  | 'AUTHENTICATION'
+  | 'AUTHORIZATION'
+  | 'DEPENDENCY'
+  | 'SECRET'
+  | 'INJECTION'
+  | 'CONFIGURATION'
+  | 'FILESYSTEM'
+  | 'OTHER'
+  | string;
+
+export interface Finding {
+  id: number;
+  engineering_run_id: number;
+  agent_execution_id: number | null;
+  type: FindingType;
+  severity: FindingSeverity;
+  category: FindingCategory;
+  title: string;
+  description: string;
+  file_path: string | null;
+  line_number: number | null;
+  evidence: string | null;
+  reproduction: string | null;
+  remediation: string | null;
+  status: 'OPEN' | 'CONFIRMED' | 'RESOLVED' | 'DISMISSED' | string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FindingsSummary {
+  total: number;
+  breaker_count: number;
+  security_count: number;
+  by_severity: Record<string, number>;
+  by_category: Record<string, number>;
+}
+
 

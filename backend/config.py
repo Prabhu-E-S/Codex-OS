@@ -51,8 +51,12 @@ class Settings(BaseSettings):
     DOCKER_SANDBOX_PROVIDER: str = os.getenv("DOCKER_SANDBOX_PROVIDER", "real")
     DOCKER_SANDBOX_USER: str | None = os.getenv("DOCKER_SANDBOX_USER", None)
 
-    class Config:
+    # Security Scanner Engine (Phase 6)
+    SECURITY_SCANNING_ENABLED: bool = os.getenv("SECURITY_SCANNING_ENABLED", "true").lower() in ("true", "1", "yes")
+    SECURITY_SCANNERS: str = os.getenv("SECURITY_SCANNERS", "pattern_scanner,bandit,pip-audit,npm-audit,semgrep,gitleaks")
+    SECURITY_SCAN_NETWORK: bool = os.getenv("SECURITY_SCAN_NETWORK", "false").lower() in ("true", "1", "yes")
 
+    class Config:
         case_sensitive = True
 
 settings = Settings()

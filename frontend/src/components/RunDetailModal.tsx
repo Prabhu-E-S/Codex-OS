@@ -25,6 +25,7 @@ import {
   Sparkles,
   Layers,
   Award,
+  Activity,
 } from 'lucide-react';
 import {
   EngineeringRun,
@@ -43,6 +44,7 @@ interface RunDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   onRunUpdated: (updatedRun: EngineeringRun) => void;
+  onOpenControlRoom?: (runId: number) => void;
 }
 
 export const RunDetailModal: React.FC<RunDetailModalProps> = ({
@@ -50,6 +52,7 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
   isOpen,
   onClose,
   onRunUpdated,
+  onOpenControlRoom,
 }) => {
   const [logs, setLogs] = useState<RunLogsResponse | null>(null);
   const [agents, setAgents] = useState<AgentExecution[]>([]);
@@ -419,14 +422,30 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
             <span>Engineering Run #{run.id}</span>
             {getStatusBadge(run.status)}
           </div>
-          <button
-            className="modal-close"
-            onClick={onClose}
-            aria-label="Close"
-            id="btn-close-run-detail"
-          >
-            <X size={16} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+            {onOpenControlRoom && (
+              <button
+                className="btn btn-secondary btn-xs"
+                onClick={() => {
+                  onClose();
+                  onOpenControlRoom(run.id);
+                }}
+                title="Observe this run in the Control Room"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+              >
+                <Activity size={13} color="#2563EB" />
+                <span>Open in Control Room</span>
+              </button>
+            )}
+            <button
+              className="modal-close"
+              onClick={onClose}
+              aria-label="Close"
+              id="btn-close-run-detail"
+            >
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
         <div className="modal-body" style={{ gap: '16px' }}>

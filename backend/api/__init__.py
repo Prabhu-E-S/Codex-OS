@@ -8,6 +8,7 @@ from backend.api.agents import router as agents_router
 from backend.api.findings import router as findings_router
 from backend.api.orchestration import router as orchestration_router
 from backend.api.evaluations import router as evaluations_router
+from backend.api.control_room import router as control_room_router
 
 api_router = APIRouter()
 api_router.include_router(health_router)
@@ -19,6 +20,7 @@ api_router.include_router(agents_router)
 api_router.include_router(findings_router)
 api_router.include_router(orchestration_router)
 api_router.include_router(evaluations_router)
+api_router.include_router(control_room_router)
 
 __all__ = ["api_router"]
 

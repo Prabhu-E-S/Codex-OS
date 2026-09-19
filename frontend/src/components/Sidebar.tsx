@@ -1,12 +1,13 @@
 import {
   LayoutDashboard,
+  Activity,
   Bot,
   FolderGit2,
   CheckSquare,
   Camera,
 } from 'lucide-react';
 
-export type NavTab = 'overview' | 'agents' | 'workspaces' | 'evaluations' | 'snapshots';
+export type NavTab = 'overview' | 'control-room' | 'workspaces' | 'agents' | 'evaluations' | 'snapshots';
 
 interface SidebarProps {
   activeTab: NavTab;
@@ -23,6 +24,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const navItems: { id: NavTab; label: string; icon: React.ReactNode; isUpcoming?: boolean }[] = [
     { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={16} /> },
+    { id: 'control-room', label: 'Control Room', icon: <Activity size={16} /> },
     { id: 'workspaces', label: 'Workspaces', icon: <FolderGit2 size={16} /> },
     { id: 'agents', label: 'Agents', icon: <Bot size={16} /> },
     { id: 'evaluations', label: 'Evaluations', icon: <CheckSquare size={16} /> },

@@ -336,5 +336,180 @@ export interface EvaluateRunPayload {
   weights?: Record<string, number>;
 }
 
+// Phase 9 — Control Room Types
+export interface ControlRoomRun {
+  id: number;
+  project_id: number;
+  project_name: string;
+  status: string;
+  goal: string;
+  mode: 'AUTONOMOUS' | 'MANUAL';
+  iteration: number;
+  max_iterations: number;
+  started_at?: string | null;
+  completed_at?: string | null;
+  duration_seconds?: number | null;
+  exit_code?: number | null;
+  error_message?: string | null;
+  workspace_id?: number | null;
+  workspace_name?: string | null;
+  sandbox_id?: number | null;
+  created_at: string;
+  updated_at: string;
+}
 
+export interface ControlRoomOrchestration {
+  state: WorkflowState;
+  current_agent?: string | null;
+  iteration: number;
+  max_iterations: number;
+  last_decision?: string | null;
+  last_decision_reason?: string | null;
+  failure_reason?: string | null;
+  pause_requested: boolean;
+  cancel_requested: boolean;
+  is_active: boolean;
+}
 
+export interface ControlRoomAgent {
+  id: number;
+  agent_type: string;
+  agent_name: string;
+  status: string;
+  iteration: number;
+  workspace_id?: number | null;
+  workspace_name?: string | null;
+  sandbox_id?: number | null;
+  sandbox_status?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  duration_seconds?: number | null;
+  input_summary?: string | null;
+  output: string;
+  error_message?: string | null;
+  exit_code?: number | null;
+  findings_count: number;
+}
+
+export interface ControlRoomIterationAgentSummary {
+  agent_type: string;
+  agent_name: string;
+  status: string;
+  duration_seconds?: number | null;
+  findings_count: number;
+}
+
+export interface ControlRoomIteration {
+  iteration_number: number;
+  status: 'COMPLETED' | 'FAILED' | 'RUNNING' | 'RETRYING';
+  agents: ControlRoomIterationAgentSummary[];
+  decision?: string | null;
+  decision_reason?: string | null;
+  findings_count: number;
+}
+
+export interface ControlRoomWorkspace {
+  id: number;
+  name: string;
+  branch_name: string;
+  relative_path: string;
+  status: string;
+  agent_name?: string | null;
+}
+
+export interface ControlRoomSandbox {
+  id: number;
+  workspace_id: number;
+  image: string;
+  status: string;
+  container_id_preview?: string | null;
+  cpu_limit: number;
+  memory_limit: string;
+  timeout_seconds: number;
+  exit_code?: number | null;
+  started_at?: string | null;
+  stopped_at?: string | null;
+}
+
+export interface ControlRoomFinding {
+  id: number;
+  type: 'BREAKER' | 'SECURITY';
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
+  category: string;
+  title: string;
+  description: string;
+  file_path?: string | null;
+  line_number?: number | null;
+  evidence?: string | null;
+  reproduction?: string | null;
+  remediation?: string | null;
+  status: string;
+  iteration: number;
+  agent_type?: string | null;
+  created_at: string;
+}
+
+export interface ControlRoomFindingsSummary {
+  total: number;
+  by_severity: Record<string, number>;
+  by_type: Record<string, number>;
+  open: number;
+  resolved: number;
+}
+
+export interface ControlRoomDimension {
+  dimension: string;
+  score?: number | null;
+  status: DimensionStatus;
+  weight: number;
+  weighted_score?: number | null;
+  explanation?: string | null;
+  limitations?: string | null;
+}
+
+export interface ControlRoomEvaluation {
+  id: number;
+  status: string;
+  overall_score?: number | null;
+  status_label: DimensionStatus;
+  score_version: string;
+  formula?: string | null;
+  summary?: string | null;
+  strengths: string[];
+  weaknesses: string[];
+  limitations: string[];
+  dimensions: ControlRoomDimension[];
+  evaluated_at?: string | null;
+}
+
+export interface ControlRoomEvent {
+  timestamp: string;
+  event_type: string;
+  iteration: number;
+  agent?: string | null;
+  state?: string | null;
+  decision?: string | null;
+  reason?: string | null;
+  details?: Record<string, unknown> | null;
+}
+
+export interface ControlRoomLogs {
+  stdout: string;
+  stderr: string;
+  exit_code?: number | null;
+  total_lines: number;
+}
+
+export interface ControlRoomSnapshotResponse {
+  run: ControlRoomRun;
+  orchestration?: ControlRoomOrchestration | null;
+  agents: ControlRoomAgent[];
+  iterations: ControlRoomIteration[];
+  workspaces: ControlRoomWorkspace[];
+  sandboxes: ControlRoomSandbox[];
+  findings: ControlRoomFinding[];
+  findings_summary: ControlRoomFindingsSummary;
+  evaluation?: ControlRoomEvaluation | null;
+  recent_events: ControlRoomEvent[];
+  logs: ControlRoomLogs;
+}

@@ -22,6 +22,7 @@ import {
   EvaluationDimension,
   EvaluationEvidence,
   EvaluateRunPayload,
+  ControlRoomSnapshotResponse,
 } from './types';
 
 
@@ -223,5 +224,9 @@ export const api = {
     request<EvaluationEvidence[]>(`/evaluations/${evaluationId}/evidence`),
   getProjectEvaluations: (projectId: number): Promise<Evaluation[]> =>
     request<Evaluation[]>(`/projects/${projectId}/evaluations`),
+
+  // Control Room (Phase 9)
+  getControlRoomSnapshot: (runId: number): Promise<ControlRoomSnapshotResponse> =>
+    request<ControlRoomSnapshotResponse>(`/runs/${runId}/control-room`),
 };
 

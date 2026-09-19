@@ -9,7 +9,7 @@ interface PlaceholderViewProps {
 
 export const PlaceholderView: React.FC<PlaceholderViewProps> = ({ tab, onBackToOverview }) => {
   const configs: Record<
-    Exclude<NavTab, 'overview'>,
+    Exclude<NavTab, 'overview' | 'control-room'>,
     { title: string; subtitle: string; icon: React.ReactNode; description: string; phase: string }
   > = {
     agents: {
@@ -46,7 +46,7 @@ export const PlaceholderView: React.FC<PlaceholderViewProps> = ({ tab, onBackToO
     },
   };
 
-  if (tab === 'overview') return null;
+  if (tab === 'overview' || tab === 'control-room') return null;
   const config = configs[tab];
 
   return (

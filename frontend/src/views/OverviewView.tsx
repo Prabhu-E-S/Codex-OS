@@ -16,6 +16,7 @@ interface OverviewViewProps {
   onDeleteProject: (id: number) => void;
   onSelectRun: (run: EngineeringRun) => void;
   onExecuteRun: (runId: number) => Promise<void>;
+  onOpenControlRoom?: (runId: number) => void;
 }
 
 export const OverviewView: React.FC<OverviewViewProps> = ({
@@ -30,6 +31,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   onDeleteProject,
   onSelectRun,
   onExecuteRun,
+  onOpenControlRoom,
 }) => {
 
   return (
@@ -61,6 +63,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             onOpenCreateRun={onOpenCreateRun}
             onSelectRun={onSelectRun}
             onExecuteRun={onExecuteRun}
+            onOpenControlRoom={onOpenControlRoom}
           />
 
         </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Header } from './components/Header';
 import { Sidebar, NavTab } from './components/Sidebar';
 import { OverviewView } from './views/OverviewView';
+import { ControlRoomView } from './views/ControlRoomView';
 import { WorkspacesView } from './views/WorkspacesView';
 import { AgentsView } from './views/AgentsView';
 import { EvaluationsView } from './views/EvaluationsView';
@@ -28,6 +29,7 @@ export const App: React.FC = () => {
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [isCreateRunOpen, setIsCreateRunOpen] = useState(false);
   const [selectedRunForDetails, setSelectedRunForDetails] = useState<EngineeringRun | null>(null);
+  const [selectedRunIdForControlRoom, setSelectedRunIdForControlRoom] = useState<number | null>(null);
   const [isRunDetailOpen, setIsRunDetailOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -155,6 +157,12 @@ export const App: React.FC = () => {
     setRuns((prev) => prev.map((r) => (r.id === updatedRun.id ? updatedRun : r)));
   };
 
+  // Handler for opening a run directly in the Control Room
+  const handleOpenControlRoom = (runId: number) => {
+    setSelectedRunIdForControlRoom(runId);
+    setActiveTab('control-room');
+  };
+
   const currentProject = projects.find((p) => p.id === selectedProjectId) || null;
 
   return (
@@ -202,8 +210,18 @@ export const App: React.FC = () => {
                 onDeleteProject={handleDeleteProject}
                 onSelectRun={handleSelectRun}
                 onExecuteRun={handleExecuteRun}
+                onOpenControlRoom={handleOpenControlRoom}
               />
             )
+          ) : activeTab === 'control-room' ? (
+            <ControlRoomView
+              currentProject={currentProject}
+              runs={runs}
+              selectedRunId={selectedRunIdForControlRoom}
+              onSelectRunId={(id) => setSelectedRunIdForControlRoom(id)}
+              onOpenEvaluationsView={() => setActiveTab('evaluations')}
+              onOpenCreateRun={() => setIsCreateRunOpen(true)}
+            />
           ) : activeTab === 'workspaces' ? (
             <WorkspacesView currentProject={currentProject} />
           ) : activeTab === 'agents' ? (
@@ -249,6 +267,7 @@ export const App: React.FC = () => {
         run={selectedRunForDetails}
         onClose={() => setIsRunDetailOpen(false)}
         onRunUpdated={handleRunUpdated}
+        onOpenControlRoom={handleOpenControlRoom}
       />
     </div>
   );

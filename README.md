@@ -1,19 +1,16 @@
 # Codex OS — The Autonomous Software Engineering Sandbox
 
-> **Phase 1: Project Foundation | Phase 2: Codex Execution Engine | Phase 3: Git Worktree System | Phase 4: Docker Sandbox Engine | Phase 5: First Autonomous Agent Team | Phase 6: Breaker + Security Agents | Phase 7: Autonomous Orchestrator | Phase 8: Evaluation & Engineering Score**
+> **Phase 1: Project Foundation | Phase 2: Codex Execution Engine | Phase 3: Git Worktree System | Phase 4: Docker Sandbox Engine | Phase 5: First Autonomous Agent Team | Phase 6: Breaker + Security Agents | Phase 7: Autonomous Orchestrator | Phase 8: Evaluation & Engineering Score | Phase 9: AI Engineering Control Room**
 
 Codex OS is an AI-native software engineering sandbox. The ultimate autonomous workflow encompasses:
 **Understand → Plan → Build → Test → Break → Security → Debug → Evaluate → Ship**
 
-Phase 8 introduces the **Evaluation Subsystem & Engineering Score**, providing an objective, evidence-backed evaluation system answering: *"How good is the resulting implementation?"*
-
-$$\text{Engineering Score} = \frac{\sum_{d \in E} \text{Score}_d \times \text{Weight}_d}{\sum_{d \in E} \text{Weight}_d} \in [0, 100]$$
-
-- **6 Evaluated Dimensions**: Correctness (30%), Test Coverage (15%), Security (20%), Maintainability (15%), Performance (10%), and Regression Risk (10%).
-- **Honest Evidence Handling**: When tools or benchmarks are missing (e.g. no coverage report or benchmark suite), the dimension is classified as `INSUFFICIENT_EVIDENCE` without fabricating 0 or 100, and the overall score is transparently normalized across dimensions with sufficient evidence.
-- **Dedicated Judge Agent**: The Judge Agent synthesizes qualitative feedback (`summary`, `strengths`, `weaknesses`, `limitations`, `dimension_notes`) strictly referencing collected evidence, with **no numerical scoring authority** (scores are 100% deterministic).
-- **Security & Redaction**: Discovered secrets, tokens, and credentials in evidence strings are automatically redacted with `<REDACTED>`.
-- **Auditability & History**: Full calculation transparency, versioned weights (`score_version: "v1"`), and immutable historical evaluation snapshots.
+Phase 9 introduces the **AI Engineering Control Room**, a visual, information-dense observability interface for Engineering Runs:
+- **Deep Observability**: Visualizes live execution state, active iteration, agent pipeline progression, self-healing retry loops, workspaces, sandboxes, findings, evaluation score breakdown, orchestration event timeline, and execution logs.
+- **Honest Polling Engine**: 3s interval for active runs, 6s for paused runs, and strictly stops upon reaching terminal states (`COMPLETED`, `FAILED`, `CANCELLED`).
+- **Read-Only Snapshot Aggregation**: `GET /api/runs/{run_id}/control-room` consolidates all subsystems without modifying DB or agent states.
+- **Credential & Secret Redaction**: Discovered API keys, tokens, and private keys in stdout, stderr, and evidence are automatically redacted.
+- **Technical & Information-Dense Design Language**: Calm, minimal, clean UI (`#F7F7F5` background, `#FFFFFF` cards, `#E5E5E2` borders, IBM Plex / JetBrains Mono typography).
 
 ---
 
@@ -90,6 +87,7 @@ Codex OS
 │   │   ├── agent.py          # AgentExecutionResponse, AgentWorkflowStatusResponse
 │   │   ├── finding.py        # FindingResponse, FindingsSummaryResponse
 │   │   ├── evaluation.py     # EvaluationResponse, DimensionResponse, EvidenceResponse, EvaluateRunPayload
+│   │   ├── control_room.py   # Phase 9 Control Room snapshot models & telemetry schemas
 │   │   └── run.py            # RunResponse & RunLogsResponse
 │   ├── api/                  # REST API Routers
 │   │   ├── health.py         # GET /api/health
@@ -100,10 +98,12 @@ Codex OS
 │   │   ├── findings.py       # Query findings, filter by type/severity/category, summary metrics
 │   │   ├── orchestrator.py   # Autonomous loop, pause, resume, cancel
 │   │   ├── evaluations.py    # Evaluate runs, get evaluations, dimensions, evidence, project evaluations
+│   │   ├── control_room.py   # Phase 9: GET /api/runs/{run_id}/control-room aggregated read-only snapshot
 │   │   └── runs.py           # Project Engineering Runs, Execute, Logs, Cancel
 │   ├── services/             # Business Logic Layer
 │   │   ├── project_service.py # Project, Run, & Sandbox DB queries
-│   │   └── execution_service.py # Background task execution, worktree & sandbox routing
+│   │   ├── execution_service.py # Background task execution, worktree & sandbox routing
+│   │   └── control_room_service.py # Phase 9 read-only state aggregation & telemetry service
 │   └── tests/
 │       ├── test_execution.py      # Phase 2 execution test suite
 │       ├── test_workspaces.py     # Phase 3 worktree test suite (zero-git mock provider)
@@ -111,16 +111,19 @@ Codex OS
 │       ├── test_agents.py         # Phase 5 agent test suite (context, isolation, sequential workflow)
 │       ├── test_breaker_security.py # Phase 6 Breaker, Security, scanner abstraction, & Finding APIs
 │       ├── test_orchestrator.py   # Phase 7 Autonomous orchestrator test suite
-│       └── test_evaluation.py     # Phase 8 Evaluation subsystem, deterministic score, & Judge suite
+│       ├── test_evaluation.py     # Phase 8 Evaluation subsystem, deterministic score, & Judge suite
+│       └── test_control_room.py   # Phase 9 Control room read-only aggregation & secrets redaction suite
 ├── docker/                   # Container definitions
 │   └── Dockerfile.sandbox    # Lightweight non-root sandbox image (python:3.12-slim)
 └── frontend/                 # React + TypeScript + Vite Dashboard
     ├── src/
-    │   ├── api/              # Type-safe API client (projects, runs, workspaces, sandboxes, agents, findings, evaluations)
-    │   ├── components/       # Header, Sidebar, Cards, Modals, 5-Agent Pipeline, Findings UI, Evaluation card, Terminal
-    │   ├── views/            # OverviewView, WorkspacesView, AgentsView, and EvaluationsView
+    │   ├── api/              # Type-safe API client (projects, runs, workspaces, sandboxes, agents, findings, evaluations, control-room)
+    │   ├── components/       # Header, Sidebar, Cards, Modals, Terminal, and Control Room modules
+    │   │   └── control-room/ # Control Room Header, Current State, Pipeline, Graph, Timeline, Findings, Eval, Logs, Drawer
+    │   ├── hooks/            # useRunControlRoom polling hook with 3s/6s cadence and terminal stop
+    │   ├── views/            # OverviewView, WorkspacesView, AgentsView, EvaluationsView, and ControlRoomView
     │   ├── App.tsx           # Application state & tab routing
-    │   └── index.css         # GitHub/Linear/VS Code CSS design system & terminal styling
+    │   └── index.css         # Minimal, light, technical, information-dense CSS design system
 ```
 
 ---
@@ -379,6 +382,9 @@ Breaker and Security operate strictly in read/test/scan mode and do NOT mutate p
 - `GET /api/evaluations/{evaluation_id}/evidence` — Fetch collected evidence items with redacted text.
 - `GET /api/projects/{project_id}/evaluations` — List recent evaluations across all runs in a project.
 
+### Control Room (Phase 9)
+- `GET /api/runs/{run_id}/control-room` — Read-only aggregated snapshot of run state, orchestration, agents, iterations, workspaces, sandboxes, findings, evaluation, events, and logs.
+
 ### Engineering Runs
 - `GET /api/projects/{id}/runs` — List runs for a project.
 - `POST /api/projects/{id}/runs` — Create an engineering run (`goal`, optional `workspace_id`, optional `sandbox_id`).
@@ -389,7 +395,8 @@ Breaker and Security operate strictly in read/test/scan mode and do NOT mutate p
 
 ---
 
-## Out of Scope for Phase 8 (Scheduled for Future Phases)
+## Out of Scope for Phase 9 (Scheduled for Future Phases)
 
-- **Control Room & WebSockets** (Phase 9: Real-time bi-directional streaming control room)
-- **Automated Branch Merging & Pull Request Generation** (Phase 10: Ship phase)
+- **Automated Branch Merging & Pull Request Generation** (Phase 10: Ship phase — automated PR creation, merge validation, branch cleanup)
+- **Production Deployment & Release Tagging** (Phase 10: Deployment verification and release publishing)
+- **External Observability Platforms** (Datadog, OpenTelemetry, Prometheus exporters)

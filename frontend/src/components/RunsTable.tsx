@@ -11,6 +11,7 @@ import {
   Play,
   Terminal,
   FolderGit2,
+  Activity,
 } from 'lucide-react';
 import { EngineeringRun, Project } from '../api/types';
 
@@ -21,6 +22,7 @@ interface RunsTableProps {
   onOpenCreateRun: () => void;
   onSelectRun: (run: EngineeringRun) => void;
   onExecuteRun: (runId: number) => Promise<void>;
+  onOpenControlRoom?: (runId: number) => void;
 }
 
 export const RunsTable: React.FC<RunsTableProps> = ({
@@ -30,6 +32,7 @@ export const RunsTable: React.FC<RunsTableProps> = ({
   onOpenCreateRun,
   onSelectRun,
   onExecuteRun,
+  onOpenControlRoom,
 }) => {
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -202,6 +205,20 @@ export const RunsTable: React.FC<RunsTableProps> = ({
                           >
                             <Play size={10} />
                             <span>Run</span>
+                          </button>
+                        )}
+                        {onOpenControlRoom && (
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            style={{ padding: '3px 7px', fontSize: '11px' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenControlRoom(run.id);
+                            }}
+                            title="Open in Control Room"
+                          >
+                            <Activity size={11} color="#2563EB" />
+                            <span>Control Room</span>
                           </button>
                         )}
                         <button

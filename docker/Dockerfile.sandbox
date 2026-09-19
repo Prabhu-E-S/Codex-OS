@@ -1,0 +1,28 @@
+# Codex OS - Minimal Disposable Sandbox Image
+FROM python:3.12-slim
+
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+# Install minimal system essentials for basic execution and testing
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a non-privileged engineering user
+RUN groupadd -g 1000 codex && \
+    useradd -u 1000 -g codex -m -s /bin/bash codex
+
+# Set up isolated workspace directory
+WORKDIR /workspace
+RUN chown -R codex:codex /workspace
+
+# Switch to non-root user
+USER codex
+
+# Default command keeps the container alive in background for command execution
+CMD ["tail", "-f", "/dev/null"]

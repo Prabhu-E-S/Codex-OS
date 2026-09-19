@@ -83,7 +83,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    description="Codex OS — The Autonomous Software Engineering Sandbox (Phase 7: Autonomous Orchestrator)",
+    description="Codex OS — The Autonomous Software Engineering Sandbox (Phase 8: Evaluation & Engineering Score)",
     lifespan=lifespan
 )
 

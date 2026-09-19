@@ -55,6 +55,12 @@ class EngineeringRun(Base):
         uselist=False,
         cascade="all, delete-orphan"
     )
+    evaluations = relationship(
+        "Evaluation",
+        back_populates="engineering_run",
+        cascade="all, delete-orphan",
+        order_by="Evaluation.id.desc()"
+    )
 
     @property
     def workspace_name(self) -> str | None:

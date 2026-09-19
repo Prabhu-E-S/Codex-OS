@@ -25,7 +25,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={16} /> },
     { id: 'workspaces', label: 'Workspaces', icon: <FolderGit2 size={16} /> },
     { id: 'agents', label: 'Agents', icon: <Bot size={16} /> },
-    { id: 'evaluations', label: 'Evaluations', icon: <CheckSquare size={16} />, isUpcoming: true },
+    { id: 'evaluations', label: 'Evaluations', icon: <CheckSquare size={16} /> },
     { id: 'snapshots', label: 'Snapshots', icon: <Camera size={16} />, isUpcoming: true },
   ];
 

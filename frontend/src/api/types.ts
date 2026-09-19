@@ -267,5 +267,74 @@ export interface StartAutonomousRunPayload {
   max_iterations?: number;
 }
 
+// Evaluation & Engineering Score (Phase 8)
+export type EvaluationDimensionType =
+  | 'CORRECTNESS'
+  | 'TEST_COVERAGE'
+  | 'SECURITY'
+  | 'MAINTAINABILITY'
+  | 'PERFORMANCE'
+  | 'REGRESSION_RISK';
+
+export type DimensionStatus = 'STRONG' | 'ADEQUATE' | 'WEAK' | 'INSUFFICIENT_EVIDENCE';
+
+export type EvaluationStatus = 'PENDING' | 'COLLECTING_EVIDENCE' | 'EVALUATING' | 'COMPLETED' | 'FAILED';
+
+export interface EvaluationEvidence {
+  id: number;
+  evaluation_id: number;
+  dimension: string;
+  source_type: string;
+  source_id?: string | null;
+  metric_name: string;
+  metric_value?: string | null;
+  unit?: string | null;
+  description: string;
+  evidence_text?: string | null;
+  file_path?: string | null;
+  line_number?: number | null;
+  created_at: string;
+}
+
+export interface EvaluationDimension {
+  id: number;
+  evaluation_id: number;
+  dimension: EvaluationDimensionType;
+  score?: number | null;
+  status: DimensionStatus;
+  weight: number;
+  weighted_score?: number | null;
+  explanation: string;
+  metrics: Record<string, unknown>;
+  limitations?: string | null;
+  created_at: string;
+}
+
+export interface Evaluation {
+  id: number;
+  engineering_run_id: number;
+  status: EvaluationStatus;
+  overall_score?: number | null;
+  status_label: DimensionStatus;
+  score_version: string;
+  weights: Record<string, number>;
+  formula?: string | null;
+  summary?: string | null;
+  strengths: string[];
+  weaknesses: string[];
+  limitations: string[];
+  started_at?: string | null;
+  completed_at?: string | null;
+  error_message?: string | null;
+  created_at: string;
+  updated_at: string;
+  dimensions?: EvaluationDimension[];
+  evidence_items?: EvaluationEvidence[];
+}
+
+export interface EvaluateRunPayload {
+  weights?: Record<string, number>;
+}
+
 
 

@@ -338,3 +338,66 @@ def build_security_prompt(
         f"```\n"
     )
 
+
+def build_judge_prompt(
+    engineering_goal: str,
+    metrics_summary: str,
+    dimension_summary: str,
+    findings_summary: str,
+) -> str:
+    """
+    Format prompt for the Judge / Evaluator Agent.
+    Instructs the agent to interpret the collected evidence qualitatively and produce
+    a structured synthesis (summary, strengths, weaknesses, limitations, dimension notes).
+    Strictly forbids generating or overriding numerical scores, modifying code, or executing Git commands.
+    """
+    return (
+        f"# Codex OS — Judge / Evaluator Agent\n\n"
+        f"You are the **Judge / Evaluator Agent** for Codex OS.\n\n"
+        f"## Engineering Goal\n"
+        f"{engineering_goal.strip()}\n\n"
+        f"## Collected Metrics & Evidence\n"
+        f"{metrics_summary.strip()}\n\n"
+        f"## Deterministic Dimension Scores\n"
+        f"{dimension_summary.strip()}\n\n"
+        f"## Adversarial & Security Findings\n"
+        f"{findings_summary.strip()}\n\n"
+        f"## Core Responsibilities\n"
+        f"1. Qualitatively interpret the run's outcomes based SOLELY on the real evidence provided above.\n"
+        f"2. Identify genuine implementation strengths backed by test and inspection evidence.\n"
+        f"3. Identify weaknesses, edge cases, and unresolved vulnerabilities.\n"
+        f"4. Honestly identify limitations in the evaluation (e.g. missing coverage tooling, unavailable benchmarks).\n"
+        f"5. Provide contextual qualitative commentary for each dimension.\n\n"
+        f"## CRITICAL RESTRICTIONS\n"
+        f"- **YOU HAVE NO NUMERICAL SCORING AUTHORITY.** The official Engineering Score is calculated deterministically by the scoring engine. Do not alter or assign numerical scores.\n"
+        f"- **DO NOT INVENT FAKE METRICS OR VULNERABILITIES.** Only cite verified evidence from the input above.\n"
+        f"- **DO NOT MODIFY ANY SOURCE FILES OR WORKSPACES.**\n"
+        f"- **DO NOT EXECUTE ANY GIT COMMANDS.**\n\n"
+        f"## Required Output Format\n"
+        f"Respond ONLY with a JSON object in this exact structure:\n\n"
+        f"```json\n"
+        f"{{\n"
+        f"  \"summary\": \"<High-level executive evaluation of the engineering implementation>\",\n"
+        f"  \"strengths\": [\n"
+        f"    \"<Verified strength 1 with evidence citation>\",\n"
+        f"    \"<Verified strength 2 with evidence citation>\"\n"
+        f"  ],\n"
+        f"  \"weaknesses\": [\n"
+        f"    \"<Verified weakness or gap 1 with evidence citation>\"\n"
+        f"  ],\n"
+        f"  \"limitations\": [\n"
+        f"    \"<Evaluation limitation e.g. lack of benchmark suite or unavailable coverage tool>\"\n"
+        f"  ],\n"
+        f"  \"dimension_notes\": {{\n"
+        f"    \"CORRECTNESS\": \"<Contextual qualitative note on correctness>\",\n"
+        f"    \"TEST_COVERAGE\": \"<Contextual qualitative note on test coverage>\",\n"
+        f"    \"SECURITY\": \"<Contextual qualitative note on security>\",\n"
+        f"    \"MAINTAINABILITY\": \"<Contextual qualitative note on maintainability>\",\n"
+        f"    \"PERFORMANCE\": \"<Contextual qualitative note on performance>\",\n"
+        f"    \"REGRESSION_RISK\": \"<Contextual qualitative note on regression risk>\"\n"
+        f"  }}\n"
+        f"}}\n"
+        f"```\n"
+    )
+
+

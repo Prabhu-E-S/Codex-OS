@@ -4,6 +4,7 @@ import { Sidebar, NavTab } from './components/Sidebar';
 import { OverviewView } from './views/OverviewView';
 import { WorkspacesView } from './views/WorkspacesView';
 import { AgentsView } from './views/AgentsView';
+import { EvaluationsView } from './views/EvaluationsView';
 import { PlaceholderView } from './components/PlaceholderView';
 import { CreateProjectModal } from './components/CreateProjectModal';
 import { CreateRunModal } from './components/CreateRunModal';
@@ -209,6 +210,16 @@ export const App: React.FC = () => {
             <AgentsView
               currentProject={currentProject}
               onOpenCreateRun={() => setIsCreateRunOpen(true)}
+            />
+          ) : activeTab === 'evaluations' ? (
+            <EvaluationsView
+              currentProject={currentProject}
+              onSelectRun={(runId) => {
+                const r = runs.find((item) => item.id === runId);
+                if (r) {
+                  handleSelectRun(r);
+                }
+              }}
             />
           ) : (
             <PlaceholderView

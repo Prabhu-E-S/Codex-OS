@@ -9,6 +9,7 @@ class AgentType(str, Enum):
     TESTER = "TESTER"
     BREAKER = "BREAKER"
     SECURITY = "SECURITY"
+    JUDGE = "JUDGE"
 
 class AgentStatus(str, Enum):
     PENDING = "PENDING"

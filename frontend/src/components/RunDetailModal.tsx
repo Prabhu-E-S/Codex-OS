@@ -24,6 +24,7 @@ import {
   Play,
   Sparkles,
   Layers,
+  Award,
 } from 'lucide-react';
 import {
   EngineeringRun,
@@ -32,6 +33,8 @@ import {
   Finding,
   FindingsSummary,
   OrchestrationResponse,
+  Evaluation,
+  EvaluationDimension,
 } from '../api/types';
 import { api } from '../api/client';
 
@@ -64,6 +67,9 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
   const [executing, setExecuting] = useState(false);
   const [executingAgentTeam, setExecutingAgentTeam] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
+  const [evaluating, setEvaluating] = useState(false);
+  const [loadingEvaluations, setLoadingEvaluations] = useState(false);
   const [expandedAgentId, setExpandedAgentId] = useState<number | null>(null);
   const [expandedFindingId, setExpandedFindingId] = useState<number | null>(null);
   const [findingTypeFilter, setFindingTypeFilter] = useState<'ALL' | 'BREAKER' | 'SECURITY'>('ALL');
@@ -77,22 +83,24 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
     }
   }, [logs, run]);
 
-  // Fetch latest logs, status, agent executions, findings, and orchestration state
+  // Fetch latest logs, status, agent executions, findings, orchestration state, and evaluations
   const fetchLogsAndStatus = async (runId: number) => {
     try {
-      const [logsData, updatedRun, agentList, findingsList, summaryData, orchData] = await Promise.all([
+      const [logsData, updatedRun, agentList, findingsList, summaryData, orchData, evalsData] = await Promise.all([
         api.getRunLogs(runId),
         api.getRun(runId),
         api.getRunAgents(runId).catch(() => []),
         api.getRunFindings(runId).catch(() => []),
         api.getRunFindingsSummary(runId).catch(() => null),
         api.getOrchestrationStatus(runId).catch(() => null),
+        api.getRunEvaluations(runId).catch(() => []),
       ]);
       setLogs(logsData);
       setAgents(agentList);
       setFindings(findingsList);
       setFindingsSummary(summaryData);
       setOrchState(orchData);
+      setEvaluations(evalsData);
       onRunUpdated(updatedRun);
     } catch (err) {
       console.error('Failed to fetch run logs, agents, findings, and orchestration:', err);
@@ -105,10 +113,12 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
       setLoadingLogs(true);
       setLoadingAgents(true);
       setLoadingFindings(true);
+      setLoadingEvaluations(true);
       fetchLogsAndStatus(run.id).finally(() => {
         setLoadingLogs(false);
         setLoadingAgents(false);
         setLoadingFindings(false);
+        setLoadingEvaluations(false);
       });
     } else {
       setLogs(null);
@@ -116,6 +126,7 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
       setFindings([]);
       setFindingsSummary(null);
       setOrchState(null);
+      setEvaluations([]);
       setExpandedAgentId(null);
       setExpandedFindingId(null);
     }
@@ -225,6 +236,33 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
       alert(err instanceof Error ? err.message : 'Failed to cancel execution');
     } finally {
       setCancelling(false);
+    }
+  };
+
+  const handleEvaluateRun = async () => {
+    if (!run) return;
+    setEvaluating(true);
+    try {
+      await api.evaluateRun(run.id);
+      await fetchLogsAndStatus(run.id);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to evaluate run');
+    } finally {
+      setEvaluating(false);
+    }
+  };
+
+  const getEvaluationStatusBadge = (statusLabel?: string) => {
+    switch (statusLabel) {
+      case 'STRONG':
+        return { bg: '#ECFDF5', color: '#065F46', border: '#A7F3D0', label: 'STRONG' };
+      case 'ADEQUATE':
+        return { bg: '#EFF6FF', color: '#1E40AF', border: '#BFDBFE', label: 'ADEQUATE' };
+      case 'WEAK':
+        return { bg: '#FEF2F2', color: '#991B1B', border: '#FECACA', label: 'WEAK' };
+      case 'INSUFFICIENT_EVIDENCE':
+      default:
+        return { bg: '#F1F5F9', color: '#475569', border: '#CBD5E1', label: 'INSUFFICIENT EVIDENCE' };
     }
   };
 
@@ -1298,6 +1336,215 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
               </div>
             );
           })()}
+
+          {/* ENGINEERING EVALUATION & SCORE (Phase 8) */}
+          <div
+            style={{
+              backgroundColor: '#FFFFFF',
+              border: '1px solid #E2E8F0',
+              borderRadius: '8px',
+              padding: '14px',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '10px',
+                flexWrap: 'wrap',
+                gap: '8px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Award size={16} color="#7C3AED" />
+                <span style={{ fontWeight: 600, fontSize: '13px', color: '#0F172A' }}>
+                  Engineering Evaluation & Score
+                </span>
+                {loadingEvaluations && (
+                  <RefreshCw size={11} className="spinning" color="#94A3B8" />
+                )}
+                <span
+                  style={{
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    backgroundColor: '#F5F3FF',
+                    color: '#7C3AED',
+                    border: '1px solid #DDD6FE',
+                  }}
+                >
+                  Phase 8
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {evaluations.length > 0 ? (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={handleEvaluateRun}
+                    disabled={evaluating}
+                    style={{ fontSize: '11px', padding: '3px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <RefreshCw size={11} className={evaluating ? 'spinning' : ''} />
+                    <span>{evaluating ? 'Evaluating...' : 'Re-evaluate'}</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={handleEvaluateRun}
+                    disabled={evaluating || isActive}
+                    style={{
+                      fontSize: '11px',
+                      padding: '3px 10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      backgroundColor: '#7C3AED',
+                      borderColor: '#6D28D9',
+                    }}
+                  >
+                    <Award size={12} />
+                    <span>{evaluating ? 'Evaluating...' : 'Evaluate Run'}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {evaluations.length === 0 ? (
+              <div style={{ fontSize: '12px', color: '#64748B', lineHeight: 1.4 }}>
+                Produce an evidence-backed Engineering Score across Correctness, Coverage, Security, Maintainability, Performance, and Regression Risk. Click &ldquo;Evaluate Run&rdquo; to evaluate this run.
+              </div>
+            ) : (() => {
+              const latestEval = evaluations[0];
+              const statusStyle = getEvaluationStatusBadge(latestEval.status_label);
+
+              return (
+                <div>
+                  {/* Top Score Summary */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 14px',
+                      backgroundColor: '#F8FAFC',
+                      borderRadius: '6px',
+                      border: '1px solid #E2E8F0',
+                      marginBottom: '10px',
+                      flexWrap: 'wrap',
+                      gap: '8px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                      <span style={{ fontSize: '24px', fontWeight: 800, color: '#0F172A', lineHeight: 1 }}>
+                        {latestEval.overall_score !== null && latestEval.overall_score !== undefined
+                          ? latestEval.overall_score.toFixed(1)
+                          : '—'}
+                      </span>
+                      <span style={{ fontSize: '13px', color: '#64748B', fontWeight: 500 }}>/ 100</span>
+                      <span
+                        style={{
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          backgroundColor: statusStyle.bg,
+                          color: statusStyle.color,
+                          border: `1px solid ${statusStyle.border}`,
+                        }}
+                      >
+                        {statusStyle.label}
+                      </span>
+                      <span style={{ fontSize: '11px', color: '#64748B', marginLeft: '6px' }}>
+                        (Version {latestEval.score_version})
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: '11px', color: '#64748B' }}>
+                      {evaluations.length > 1 ? `${evaluations.length} historical evaluations` : '1 evaluation record'}
+                    </div>
+                  </div>
+
+                  {/* Formula Preview */}
+                  {latestEval.formula && (
+                    <div
+                      style={{
+                        padding: '6px 10px',
+                        backgroundColor: '#FFFFFF',
+                        border: '1px solid #E2E8F0',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        fontFamily: 'JetBrains Mono, monospace',
+                        color: '#334155',
+                        marginBottom: '10px',
+                        overflowX: 'auto',
+                      }}
+                    >
+                      {latestEval.formula}
+                    </div>
+                  )}
+
+                  {/* Dimensions Mini Grid */}
+                  {latestEval.dimensions && latestEval.dimensions.length > 0 && (
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                        gap: '6px',
+                      }}
+                    >
+                      {latestEval.dimensions.map((d: EvaluationDimension) => (
+                        <div
+                          key={d.id}
+                          style={{
+                            padding: '6px 8px',
+                            backgroundColor: '#FFFFFF',
+                            border: '1px solid #E2E8F0',
+                            borderRadius: '4px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '2px',
+                          }}
+                        >
+                          <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>
+                            {d.dimension.replace('_', ' ')}
+                          </div>
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#0F172A' }}>
+                            {d.score !== null && d.score !== undefined ? `${d.score.toFixed(1)}` : '—'}
+                            <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 400 }}> ({Math.round(d.weight * 100)}%)</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Judge Summary Preview */}
+                  {latestEval.summary && (
+                    <div
+                      style={{
+                        marginTop: '10px',
+                        padding: '8px 10px',
+                        backgroundColor: '#FAF5FF',
+                        border: '1px solid #E9D5FF',
+                        borderRadius: '6px',
+                        fontSize: '11.5px',
+                        color: '#581C87',
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      <strong>Judge Assessment: </strong>
+                      {latestEval.summary}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
 
           {/* Telemetry metadata */}
           <div

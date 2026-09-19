@@ -63,6 +63,30 @@ class Settings(BaseSettings):
     ORCHESTRATOR_DEFAULT_AGENT_TIMEOUT: int = int(os.getenv("ORCHESTRATOR_DEFAULT_AGENT_TIMEOUT", "900"))
     ORCHESTRATOR_TOTAL_RUN_TIMEOUT: int = int(os.getenv("ORCHESTRATOR_TOTAL_RUN_TIMEOUT", "3600"))
 
+    # Evaluation & Engineering Score (Phase 8)
+    EVALUATION_ENABLED: bool = os.getenv("EVALUATION_ENABLED", "true").lower() in ("true", "1", "yes")
+    EVALUATION_SCORE_VERSION: str = os.getenv("EVALUATION_SCORE_VERSION", "v1")
+    EVALUATION_WEIGHT_CORRECTNESS: float = float(os.getenv("EVALUATION_WEIGHT_CORRECTNESS", "0.30"))
+    EVALUATION_WEIGHT_TEST_COVERAGE: float = float(os.getenv("EVALUATION_WEIGHT_TEST_COVERAGE", "0.15"))
+    EVALUATION_WEIGHT_SECURITY: float = float(os.getenv("EVALUATION_WEIGHT_SECURITY", "0.20"))
+    EVALUATION_WEIGHT_MAINTAINABILITY: float = float(os.getenv("EVALUATION_WEIGHT_MAINTAINABILITY", "0.15"))
+    EVALUATION_WEIGHT_PERFORMANCE: float = float(os.getenv("EVALUATION_WEIGHT_PERFORMANCE", "0.10"))
+    EVALUATION_WEIGHT_REGRESSION_RISK: float = float(os.getenv("EVALUATION_WEIGHT_REGRESSION_RISK", "0.10"))
+
+    def get_evaluation_weights(self) -> dict[str, float]:
+        weights = {
+            "CORRECTNESS": self.EVALUATION_WEIGHT_CORRECTNESS,
+            "TEST_COVERAGE": self.EVALUATION_WEIGHT_TEST_COVERAGE,
+            "SECURITY": self.EVALUATION_WEIGHT_SECURITY,
+            "MAINTAINABILITY": self.EVALUATION_WEIGHT_MAINTAINABILITY,
+            "PERFORMANCE": self.EVALUATION_WEIGHT_PERFORMANCE,
+            "REGRESSION_RISK": self.EVALUATION_WEIGHT_REGRESSION_RISK,
+        }
+        total = sum(weights.values())
+        if abs(total - 1.0) > 1e-5:
+            raise ValueError(f"Evaluation weights must sum to 1.0; got {total:.4f}")
+        return weights
+
     class Config:
         case_sensitive = True
 

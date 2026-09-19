@@ -18,6 +18,10 @@ import {
   FindingsSummary,
   OrchestrationResponse,
   StartAutonomousRunPayload,
+  Evaluation,
+  EvaluationDimension,
+  EvaluationEvidence,
+  EvaluateRunPayload,
 } from './types';
 
 
@@ -202,5 +206,22 @@ export const api = {
     request<OrchestrationResponse>(`/runs/${runId}/orchestration/cancel`, {
       method: 'POST',
     }),
+
+  // Evaluation & Engineering Score (Phase 8)
+  evaluateRun: (runId: number, payload?: EvaluateRunPayload): Promise<Evaluation> =>
+    request<Evaluation>(`/runs/${runId}/evaluate`, {
+      method: 'POST',
+      body: JSON.stringify(payload ?? {}),
+    }),
+  getRunEvaluations: (runId: number): Promise<Evaluation[]> =>
+    request<Evaluation[]>(`/runs/${runId}/evaluations`),
+  getEvaluation: (evaluationId: number): Promise<Evaluation> =>
+    request<Evaluation>(`/evaluations/${evaluationId}`),
+  getEvaluationDimensions: (evaluationId: number): Promise<EvaluationDimension[]> =>
+    request<EvaluationDimension[]>(`/evaluations/${evaluationId}/dimensions`),
+  getEvaluationEvidence: (evaluationId: number): Promise<EvaluationEvidence[]> =>
+    request<EvaluationEvidence[]>(`/evaluations/${evaluationId}/evidence`),
+  getProjectEvaluations: (projectId: number): Promise<Evaluation[]> =>
+    request<Evaluation[]>(`/projects/${projectId}/evaluations`),
 };
 

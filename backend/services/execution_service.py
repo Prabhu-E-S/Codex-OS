@@ -45,6 +45,12 @@ class ExecutionService:
                 detail=f"Run {run_id} is already active with status {run.status}"
             )
 
+        if run.status in (RunStatus.COMPLETED.value, RunStatus.FAILED.value, RunStatus.CANCELLED.value):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Run {run_id} is in terminal state '{run.status}'. Please create a new run instead of re-executing."
+            )
+
         # Transition status to STARTING
         run.status = RunStatus.STARTING.value
         run.started_at = datetime.now(timezone.utc)

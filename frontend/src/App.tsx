@@ -155,6 +155,9 @@ export const App: React.FC = () => {
   const handleRunUpdated = (updatedRun: EngineeringRun) => {
     setSelectedRunForDetails(updatedRun);
     setRuns((prev) => prev.map((r) => (r.id === updatedRun.id ? updatedRun : r)));
+    if (selectedProjectId) {
+      fetchRuns(selectedProjectId);
+    }
   };
 
   // Handler for opening a run directly in the Control Room
@@ -189,6 +192,16 @@ export const App: React.FC = () => {
             <div className="alert-banner alert-banner-error" style={{ marginBottom: '20px' }}>
               <AlertCircle size={16} />
               <span>{globalError}. Ensure the FastAPI server is running on port 8000.</span>
+            </div>
+          )}
+
+          {health === null && !loadingHealth && !loadingProjects && (
+            <div className="alert-banner alert-banner-error" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertCircle size={16} />
+                <span>Backend unavailable — ensure FastAPI server is running on port 8000.</span>
+              </div>
+              <button className="btn btn-secondary btn-sm" onClick={() => { fetchHealth(); fetchProjects(); }}>Retry</button>
             </div>
           )}
 

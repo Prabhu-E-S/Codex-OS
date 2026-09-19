@@ -62,11 +62,11 @@ def create_workspace_sandbox(
     if payload:
         spec = SandboxSpec(
             image=payload.image or settings.DOCKER_SANDBOX_IMAGE,
-            cpu_limit=payload.cpu_limit or settings.DOCKER_SANDBOX_CPU_LIMIT,
+            cpu_limit=max(0.1, min(4.0, payload.cpu_limit or settings.DOCKER_SANDBOX_CPU_LIMIT)),
             memory_limit=payload.memory_limit or settings.DOCKER_SANDBOX_MEMORY_LIMIT,
-            timeout_seconds=payload.timeout_seconds or settings.DOCKER_SANDBOX_TIMEOUT,
+            timeout_seconds=max(1, min(3600, payload.timeout_seconds or settings.DOCKER_SANDBOX_TIMEOUT)),
             network_enabled=payload.network_enabled if payload.network_enabled is not None else (settings.DOCKER_SANDBOX_NETWORK != "none"),
-            pids_limit=payload.pids_limit or settings.DOCKER_SANDBOX_PIDS_LIMIT,
+            pids_limit=max(16, min(1024, payload.pids_limit or settings.DOCKER_SANDBOX_PIDS_LIMIT)),
             user=settings.DOCKER_SANDBOX_USER,
         )
 
@@ -89,9 +89,10 @@ def create_workspace_sandbox(
             detail=f"Security violation: {e}"
         )
     except Exception as e:
+        logger.error(f"Sandbox creation error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create sandbox: {e}"
+            detail="An unexpected error occurred while creating the sandbox."
         )
 
 
@@ -128,7 +129,8 @@ def start_sandbox(sandbox_id: int, db: Session = Depends(get_db)):
     except SandboxNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to start sandbox: {e}")
+        logger.error(f"Sandbox start error: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An unexpected error occurred while starting the sandbox.")
 
 
 @router.post("/sandboxes/{sandbox_id}/stop", response_model=SandboxResponse)
@@ -141,7 +143,8 @@ def stop_sandbox(sandbox_id: int, db: Session = Depends(get_db)):
     except SandboxNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to stop sandbox: {e}")
+        logger.error(f"Sandbox stop error: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An unexpected error occurred while stopping the sandbox.")
 
 
 @router.delete("/sandboxes/{sandbox_id}", response_model=SandboxResponse)
@@ -154,7 +157,8 @@ def remove_sandbox(sandbox_id: int, db: Session = Depends(get_db)):
     except SandboxNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to remove sandbox: {e}")
+        logger.error(f"Sandbox remove error: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An unexpected error occurred while removing the sandbox.")
 
 
 @router.post("/sandboxes/{sandbox_id}/execute", response_model=CommandResultResponse)
@@ -187,4 +191,5 @@ def execute_sandbox_command(
     except SandboxError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Execution error: {e}")
+        logger.error(f"Sandbox execution error: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An unexpected error occurred while executing the command.")

@@ -20,6 +20,15 @@ from backend.models.sandbox import Sandbox
 client = TestClient(app)
 
 
+def test_control_room_route_registered_in_openapi():
+    """Verify the Control Room route is registered under the public API prefix."""
+    schema = app.openapi()
+    path = "/api/runs/{run_id}/control-room"
+
+    assert path in schema["paths"]
+    assert "get" in schema["paths"][path]
+
+
 @pytest.fixture(autouse=True)
 def setup_teardown():
     Base.metadata.create_all(bind=engine)

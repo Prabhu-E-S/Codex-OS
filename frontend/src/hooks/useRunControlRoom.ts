@@ -56,6 +56,7 @@ export function useRunControlRoom(runId: number | null): UseRunControlRoomReturn
           status === 'COMPLETED' ||
           status === 'FAILED' ||
           status === 'CANCELLED' ||
+          status === 'TIMEOUT' ||
           orchState === 'COMPLETED' ||
           orchState === 'FAILED' ||
           orchState === 'CANCELLED';

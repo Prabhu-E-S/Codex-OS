@@ -38,6 +38,11 @@ def create_project_run(project_id: int, run_in: RunCreate, db: Session = Depends
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Run goal is required"
         )
+    if len(run_in.goal) > 10000:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Run goal exceeds maximum length of 10000 characters"
+        )
     if run_in.workspace_id:
         from backend.models.workspace import Workspace
         ws = db.query(Workspace).filter(

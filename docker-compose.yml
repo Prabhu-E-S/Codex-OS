@@ -1,0 +1,99 @@
+version: '3.8'
+
+# =============================================================================
+# Codex OS — Docker Compose Deployment
+# Phase 10: Deployment Readiness
+#
+# Services:
+#   - postgres : PostgreSQL 15 database (recommended for production)
+#   - backend  : FastAPI backend (Codex OS API)
+#   - frontend : Vite build served via Nginx
+#
+# Usage:
+#   docker-compose up --build -d
+#
+# IMPORTANT — Docker Socket Security Warning:
+#   The backend service mounts /var/run/docker.sock to allow Codex OS
+#   to provision isolated sandbox containers. This grants the backend
+#   process control over the host Docker daemon. Only deploy in a trusted
+#   environment with appropriate access controls.
+#
+# For local development (no Docker), use:
+#   DATABASE_URL=sqlite:///./codex_os.db  (default fallback)
+#   Run backend: python -m backend.main
+#   Run frontend: npm run dev (in /frontend)
+# =============================================================================
+
+services:
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: codex_os_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-codex_os}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: codex_os_backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    environment:
+      - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-codex_os}
+      - BACKEND_HOST=0.0.0.0
+      - BACKEND_PORT=8000
+      - CODEX_GIT_PROVIDER=${CODEX_GIT_PROVIDER:-real}
+      - CODEX_WORKSPACE_ROOT=/app/workspaces
+      - DOCKER_SANDBOX_PROVIDER=${DOCKER_SANDBOX_PROVIDER:-real}
+      - DOCKER_SANDBOX_IMAGE=${DOCKER_SANDBOX_IMAGE:-python:3.12-slim}
+      - DOCKER_SANDBOX_CPU_LIMIT=${DOCKER_SANDBOX_CPU_LIMIT:-1.0}
+      - DOCKER_SANDBOX_MEMORY_LIMIT=${DOCKER_SANDBOX_MEMORY_LIMIT:-512m}
+      - DOCKER_SANDBOX_TIMEOUT=${DOCKER_SANDBOX_TIMEOUT:-60}
+      - DOCKER_SANDBOX_NETWORK=${DOCKER_SANDBOX_NETWORK:-none}
+      - DOCKER_SANDBOX_PIDS_LIMIT=${DOCKER_SANDBOX_PIDS_LIMIT:-128}
+      - SECURITY_SCANNING_ENABLED=${SECURITY_SCANNING_ENABLED:-true}
+      - ORCHESTRATOR_ENABLED=${ORCHESTRATOR_ENABLED:-true}
+      - ORCHESTRATOR_DEFAULT_MAX_ITERATIONS=${ORCHESTRATOR_DEFAULT_MAX_ITERATIONS:-3}
+      - EVALUATION_ENABLED=${EVALUATION_ENABLED:-true}
+    volumes:
+      # SECURITY WARNING: Mounting Docker socket grants backend container access to host Docker daemon.
+      # Required for Codex OS sandbox provisioning. Only use in a trusted environment.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Workspace persistence across restarts
+      - codex_workspaces:/app/workspaces
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        - VITE_API_URL=${VITE_API_URL:-http://localhost:8000}
+    container_name: codex_os_frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+    driver: local
+  codex_workspaces:
+    driver: local

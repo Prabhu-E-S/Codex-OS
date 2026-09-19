@@ -26,6 +26,17 @@ def create_project(project_in: ProjectCreate, db: Session = Depends(get_db)):
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Repository path is required"
         )
+    clean_path = project_in.repository_path.strip()
+    if len(clean_path) > 500:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Repository path exceeds maximum length of 500 characters"
+        )
+    if ".." in clean_path or "\0" in clean_path:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Repository path contains invalid characters or traversal attempts"
+        )
     return ProjectService.create_project(db, project_in)
 
 @router.get("/{project_id}", response_model=ProjectResponse)

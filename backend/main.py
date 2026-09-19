@@ -78,12 +78,21 @@ async def lifespan(app: FastAPI):
         logger.error(f"Error creating database tables: {e}")
     yield
     logger.info("Codex OS backend shutting down.")
+    try:
+        from backend.codex.process import process_manager
+        with process_manager._global_lock:
+            active_runs = list(process_manager._processes.keys())
+        for run_id in active_runs:
+            logger.warning(f"Cancelling orphaned Codex process for run {run_id} on shutdown.")
+            process_manager.cancel(run_id)
+    except Exception as e:
+        logger.error(f"Error during shutdown cleanup: {e}")
 
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    description="Codex OS — The Autonomous Software Engineering Sandbox (Phase 8: Evaluation & Engineering Score)",
+    description="Codex OS — The Autonomous Software Engineering Sandbox (Phase 10: Final Hardening, Demo & Deployment Readiness)",
     lifespan=lifespan
 )
 
@@ -105,7 +114,7 @@ def root():
     return {
         "service": "Codex OS API",
         "version": settings.VERSION,
-        "phase": "Phase 1: Project Foundation",
+        "phase": 10,
         "docs_url": "/docs",
         "health_url": f"{settings.API_PREFIX}/health"
     }
@@ -117,9 +126,10 @@ async def global_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
-            "error": "Internal Server Error",
-            "message": str(exc),
-            "path": request.url.path
+            "error": {
+                "code": "INTERNAL_ERROR",
+                "message": "An unexpected internal error occurred."
+            }
         }
     )
 

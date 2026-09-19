@@ -58,8 +58,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       <div className="sidebar-footer">
-        <div>Codex OS Foundation</div>
-        <div>Minimal Engineering Shell</div>
+        <div>Codex OS v0.10.0</div>
+        <div>Phase 10: Deployment Ready</div>
       </div>
     </aside>
   );

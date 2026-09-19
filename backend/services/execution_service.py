@@ -1,6 +1,7 @@
 import logging
 import threading
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional, Tuple
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
@@ -136,6 +137,15 @@ class ExecutionService:
                     logger.info(f"Run {run_id} routed to isolated workspace {ws.name} at {ws.path}")
                 else:
                     logger.warning(f"Run {run_id} specifies workspace {run.workspace_id} which was not found or deleted; falling back to repository path.")
+
+            if run.target_subpath:
+                base_path = Path(target_path).resolve()
+                scoped_path = (base_path / run.target_subpath).resolve()
+                try:
+                    scoped_path.relative_to(base_path)
+                except ValueError:
+                    raise ValueError("Run target_subpath escapes the selected workspace or repository.")
+                target_path = str(scoped_path)
 
             # Transition status to RUNNING
             run.status = RunStatus.RUNNING.value

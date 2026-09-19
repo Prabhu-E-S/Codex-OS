@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -43,6 +44,19 @@ def create_project_run(project_id: int, run_in: RunCreate, db: Session = Depends
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Run goal exceeds maximum length of 10000 characters"
         )
+    if run_in.target_subpath:
+        target_subpath = run_in.target_subpath.strip()
+        target_path = Path(target_subpath)
+        if (
+            not target_subpath
+            or "\0" in target_subpath
+            or target_path.is_absolute()
+            or any(part == ".." for part in target_path.parts)
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="target_subpath must be a safe relative path inside the project workspace"
+            )
     if run_in.workspace_id:
         from backend.models.workspace import Workspace
         ws = db.query(Workspace).filter(

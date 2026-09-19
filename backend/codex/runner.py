@@ -62,6 +62,35 @@ class CodexRunner:
         """Cancel an active execution process."""
         return process_manager.cancel(run_id)
 
+    @staticmethod
+    def _build_command_args(command_str: str) -> list[str]:
+        """
+        Build subprocess arguments for Codex execution.
+        Bare `codex` starts the interactive CLI, so normalize it to the
+        non-interactive exec mode and read the prompt from stdin.
+        """
+        clean_command = command_str.strip().strip("\"'")
+        if os.path.isabs(clean_command) and os.path.exists(clean_command):
+            cmd_args = [clean_command]
+        else:
+            try:
+                cmd_args = shlex.split(command_str, posix=True)
+            except Exception:
+                cmd_args = [command_str]
+
+        if cmd_args:
+            executable = os.path.basename(cmd_args[0]).lower()
+            if executable in ("codex", "codex.exe", "codex.cmd", "codex.ps1") and "exec" not in cmd_args[1:2]:
+                cmd_args = [cmd_args[0], "exec", "-"] + cmd_args[1:]
+            if sys.platform == "win32":
+                ext = os.path.splitext(cmd_args[0])[1].lower()
+                if ext in (".cmd", ".bat"):
+                    cmd_args = ["cmd.exe", "/c"] + cmd_args
+                elif ext == ".ps1":
+                    cmd_args = ["powershell.exe", "-ExecutionPolicy", "Bypass", "-File"] + cmd_args
+
+        return cmd_args
+
     @classmethod
     def execute(
         cls,
@@ -108,12 +137,7 @@ class CodexRunner:
         prompt = build_codex_prompt(goal=goal, repository_path=repository_path, project_name=project_name)
 
         # 4. Prepare execution command
-        # Use posix=True so quoted tokens with spaces are unquoted properly for subprocess
-        try:
-            cmd_args = shlex.split(command_str, posix=True)
-        except Exception:
-            cmd_args = [command_str]
-
+        cmd_args = cls._build_command_args(command_str)
 
         # Determine timeout
         timeout = timeout_seconds or settings.CODEX_EXECUTION_TIMEOUT

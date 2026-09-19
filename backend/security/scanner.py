@@ -1,6 +1,6 @@
 import time
 import logging
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from backend.config import settings
 from backend.security.models import AggregatedScanReport, ScannerReport, ScannerFinding

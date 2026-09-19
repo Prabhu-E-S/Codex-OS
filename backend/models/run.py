@@ -10,6 +10,7 @@ class EngineeringRun(Base):
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
     status = Column(String(50), nullable=False, default="PENDING")
     goal = Column(Text, nullable=False)
+    target_subpath = Column(String(500), nullable=True)
 
     # Execution tracking fields (Phase 2)
     started_at = Column(DateTime, nullable=True)

@@ -11,6 +11,7 @@ import tempfile
 import pytest
 from datetime import datetime, timezone
 from fastapi.testclient import TestClient
+from unittest.mock import patch
 
 
 # Set test database
@@ -36,14 +37,23 @@ def teardown_module():
         pass
 
 def test_codex_availability_detection():
-    # When CODEX_COMMAND is not set and codex binary is absent
+    # When CODEX_COMMAND is not set, CodexRunner auto-detects codex on PATH.
     os.environ.pop("CODEX_COMMAND", None)
     from backend.config import settings
     settings.CODEX_COMMAND = None
 
-    is_avail, cmd, err = CodexRunner.is_available()
+    with patch("backend.codex.runner.shutil.which", return_value=None):
+        is_avail, cmd, err = CodexRunner.is_available()
+
     assert is_avail is False
     assert "Codex is not available" in err
+
+    with patch("backend.codex.runner.shutil.which", return_value="C:\\tools\\codex.cmd"):
+        is_avail, cmd, err = CodexRunner.is_available()
+
+    assert is_avail is True
+    assert cmd == "C:\\tools\\codex.cmd"
+    assert err is None
 
 def test_codex_unavailable_flow():
     # Setup test project and run
@@ -67,13 +77,19 @@ def test_codex_unavailable_flow():
     assert res.status_code == 201
     run_id = res.json()["id"]
 
-    # 3. Execute run
-    res = client.post(f"/api/runs/{run_id}/execute")
-    assert res.status_code == 200
-    assert res.json()["status"] in ("STARTING", "FAILED")
+    # 3. Execute run with Codex availability isolated from the real host PATH
+    unavailable = (
+        False,
+        None,
+        "Codex is not available in the current environment. Configure the Codex execution environment before starting a run.",
+    )
+    with patch("backend.codex.runner.CodexRunner.is_available", return_value=unavailable):
+        res = client.post(f"/api/runs/{run_id}/execute")
+        assert res.status_code == 200
+        assert res.json()["status"] in ("STARTING", "FAILED")
 
-    # Give background thread time to process
-    time.sleep(0.5)
+        # Give background thread time to process while the mock remains active
+        time.sleep(0.5)
 
     # 4. Check run status & logs
     res = client.get(f"/api/runs/{run_id}")

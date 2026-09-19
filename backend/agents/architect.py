@@ -28,7 +28,7 @@ class ArchitectAgent(BaseAgent):
         logger.info(f"Architect Agent starting for run {context.engineering_run_id}")
 
         prompt = build_architect_prompt(context)
-        target_path = context.workspace_path or context.repository_path
+        target_path = context.get_target_path()
 
         # Execute inspection & plan generation via Phase 2 CodexRunner
         execution_result = CodexRunner.execute(

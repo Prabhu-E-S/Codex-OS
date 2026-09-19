@@ -3,6 +3,7 @@ import shutil
 import tempfile
 import pytest
 from datetime import datetime, timezone
+from pathlib import Path
 from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 
@@ -285,6 +286,47 @@ def test_security_agent_merges_scanner_and_static_analysis(setup_teardown):
         titles = [f["title"] for f in findings]
         assert any("API key" in t for t in titles)
         assert any("Missing authentication" in t for t in titles)
+
+
+def test_security_agent_scans_target_subpath_only(setup_teardown):
+    """Security scanners must receive the scoped run target, not the workspace root."""
+    temp_dir = setup_teardown
+    target_dir = Path(temp_dir) / "demo-project"
+    target_dir.mkdir()
+    (target_dir / "app.py").write_text("def ok():\n    return True\n", encoding="utf-8")
+
+    agent = SecurityAgent()
+    build_res = AgentResult(AgentType.BUILDER, "Builder", AgentStatus.COMPLETED, "Summary...")
+    context = AgentContext(
+        project_id=1,
+        project_name="ScopedSecApp",
+        repository_path=temp_dir,
+        engineering_run_id=104,
+        engineering_goal="Security review",
+        workspace_path=temp_dir,
+        target_subpath="demo-project",
+        previous_results={AgentType.BUILDER: build_res},
+    )
+
+    empty_scan_report = AggregatedScanReport(
+        scanners_attempted=["pattern_scanner"],
+        scanners_available=["pattern_scanner"],
+        findings=[],
+    )
+    mock_exec = make_exec_result(
+        RunStatus.COMPLETED,
+        0,
+        "Security Posture Summary: No vulnerabilities found.\n```json\n[]\n```",
+        "",
+    )
+
+    with patch("backend.security.scanner.SecurityScannerManager.run_scans", return_value=empty_scan_report) as mock_scan:
+        with patch("backend.codex.runner.CodexRunner.execute", return_value=mock_exec) as mock_runner:
+            res = agent.run(context)
+
+    assert res.status == AgentStatus.COMPLETED
+    assert Path(mock_scan.call_args.kwargs["target_path"]).resolve() == target_dir.resolve()
+    assert Path(mock_runner.call_args.kwargs["repository_path"]).resolve() == target_dir.resolve()
 
 
 # ==========================================

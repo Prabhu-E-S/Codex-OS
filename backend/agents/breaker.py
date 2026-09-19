@@ -57,7 +57,7 @@ class BreakerAgent(BaseAgent):
         tester_output = tester_res.output if tester_res else "Tester output unavailable."
 
         prompt = build_breaker_prompt(context, architect_plan, builder_summary, tester_output)
-        target_path = context.workspace_path or context.repository_path
+        target_path = context.get_target_path()
 
         # Execute adversarial analysis via Phase 2 CodexRunner
         execution_result = CodexRunner.execute(

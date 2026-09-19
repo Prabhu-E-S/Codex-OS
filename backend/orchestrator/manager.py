@@ -364,6 +364,7 @@ class OrchestratorManager:
             workspace_id=agent_exec.workspace_id,
             workspace_name=ws_name,
             workspace_path=ws_path,
+            target_subpath=run.target_subpath,
             sandbox_id=agent_exec.sandbox_id,
             previous_results=previous_results,
             iteration=iteration,
@@ -377,6 +378,18 @@ class OrchestratorManager:
             context.security_findings = feedback_dict.get("security_findings", [])
             context.previous_failure_reason = feedback_dict.get("previous_failure_reason")
             context.orchestrator_decision = feedback_dict.get("orchestrator_decision")
+
+        if agent_type in (AgentType.TESTER, AgentType.BREAKER, AgentType.SECURITY):
+            builder_result = previous_results.get(AgentType.BUILDER)
+            builder_target_path = (
+                builder_result.metadata.get("working_directory")
+                if builder_result and builder_result.metadata
+                else None
+            )
+            AgentManager._sync_builder_target_to_agent_workspace(
+                source_target_path=builder_target_path,
+                destination_target_path=context.get_target_path(),
+            )
 
         # Run agent
         result = agent_instance.run(context)

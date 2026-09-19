@@ -1,6 +1,8 @@
 import logging
+import shutil
 import threading
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Dict, List, Optional
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
@@ -150,6 +152,52 @@ class AgentManager:
             )
             return None
 
+    @staticmethod
+    def _sync_builder_target_to_agent_workspace(
+        source_target_path: Optional[str],
+        destination_target_path: str,
+    ) -> None:
+        """
+        Copy Builder output into a downstream agent workspace while preserving
+        separate workspaces. This keeps Tester/Breaker/Security isolated but
+        ensures they inspect the implementation Builder actually produced.
+        """
+        if not source_target_path:
+            return
+
+        source = Path(source_target_path).resolve()
+        destination = Path(destination_target_path).resolve()
+        if source == destination:
+            return
+        if not source.exists() or not source.is_dir():
+            logger.warning(f"Builder target path is unavailable for downstream sync: {source}")
+            return
+
+        ignored_names = {
+            ".git",
+            ".pytest_cache",
+            ".mypy_cache",
+            ".ruff_cache",
+            "__pycache__",
+            "node_modules",
+        }
+
+        destination.mkdir(parents=True, exist_ok=True)
+        for item in source.iterdir():
+            if item.name in ignored_names:
+                continue
+            target = destination / item.name
+            if item.is_dir():
+                if target.exists():
+                    shutil.rmtree(target)
+                shutil.copytree(
+                    item,
+                    target,
+                    ignore=shutil.ignore_patterns(*ignored_names),
+                )
+            else:
+                shutil.copy2(item, target)
+
     @classmethod
     def start_workflow(cls, run_id: int, db: Session) -> EngineeringRun:
         """
@@ -291,9 +339,22 @@ class AgentManager:
                     workspace_id=agent_exec.workspace_id,
                     workspace_name=ws_name,
                     workspace_path=ws_path,
+                    target_subpath=run.target_subpath,
                     sandbox_id=agent_exec.sandbox_id,
                     previous_results=previous_results,
                 )
+
+                if agent_type in (AgentType.TESTER, AgentType.BREAKER, AgentType.SECURITY):
+                    builder_result = previous_results.get(AgentType.BUILDER)
+                    builder_target_path = (
+                        builder_result.metadata.get("working_directory")
+                        if builder_result and builder_result.metadata
+                        else None
+                    )
+                    cls._sync_builder_target_to_agent_workspace(
+                        source_target_path=builder_target_path,
+                        destination_target_path=context.get_target_path(),
+                    )
 
                 # Execute the agent
                 result = agent_instance.run(context)

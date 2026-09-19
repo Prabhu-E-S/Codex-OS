@@ -24,6 +24,7 @@ from backend.agents.manager import AgentManager
 from backend.codex.models import RunStatus, ExecutionResult
 from backend.workspace.git import MockGitWorkspaceProvider
 from backend.sandbox.docker import MockDockerProvider
+from backend.sandbox.manager import SandboxManager
 
 from backend.database import Base, engine, SessionLocal
 
@@ -217,7 +218,7 @@ def test_sequential_workflow_and_agent_isolation(setup_teardown):
     assert "Autonomous Agent Team Workflow Completed" in run.stdout
 
     # Verify agent executions
-    execs = db.query(AgentExecution).filter(AgentExecution.engineering_run_id == run.id).all()
+    execs = db.query(AgentExecution).filter(AgentExecution.engineering_run_id == run.id).order_by(AgentExecution.id.asc()).all()
     assert len(execs) == 5
     assert [e.agent_type for e in execs] == ["ARCHITECT", "BUILDER", "TESTER", "BREAKER", "SECURITY"]
     assert all(e.status == AgentStatus.COMPLETED.value for e in execs)
@@ -225,6 +226,62 @@ def test_sequential_workflow_and_agent_isolation(setup_teardown):
     # Verify workspace isolation: agents must not share the same workspace
     ws_ids = [e.workspace_id for e in execs]
     assert len(set(ws_ids)) == 5, f"Agents must operate in separate workspaces, got: {ws_ids}"
+    db.close()
+
+
+def test_downstream_agents_receive_builder_target_snapshot(setup_teardown):
+    """
+    Builder changes must be propagated into downstream isolated workspaces so
+    Tester/Breaker/Security verify the implementation rather than a fresh baseline.
+    """
+    temp_dir = setup_teardown
+    db = SessionLocal()
+    project = Project(name="TargetSnapshotProject", repository_path=temp_dir)
+    db.add(project)
+    db.commit()
+
+    run = EngineeringRun(
+        project_id=project.id,
+        goal="Update demo calculator",
+        target_subpath="demo-project",
+    )
+    db.add(run)
+    db.commit()
+
+    marker_file = os.path.join("app", "calculator.py")
+
+    def fake_execute(run_id, goal, repository_path, project_name, timeout_seconds=None):
+        os.makedirs(os.path.join(repository_path, "app"), exist_ok=True)
+        if "run" in repository_path and "builder" in repository_path:
+            with open(os.path.join(repository_path, marker_file), "w", encoding="utf-8") as f:
+                f.write("def divide(a, b):\n    return 'builder-change'\n")
+            return make_exec_result(RunStatus.COMPLETED, 0, "Builder Implemented: changed calculator.py", "")
+
+        if "tester" in repository_path or "breaker" in repository_path or "security" in repository_path:
+            assert os.path.exists(os.path.join(repository_path, marker_file))
+
+        if "architect" in repository_path:
+            return make_exec_result(RunStatus.COMPLETED, 0, "Architect Plan: change calculator.py", "")
+        if "tester" in repository_path:
+            return make_exec_result(RunStatus.COMPLETED, 0, "Tests Run: 1\nPassed: 1\nFailed: 0\nStatus: PASSED", "")
+        if "breaker" in repository_path:
+            return make_exec_result(RunStatus.COMPLETED, 0, "Tests Generated: 1\nTests Executed: 1\nTests Passed: 1\nTests Failed: 0\n```json\n[]\n```", "")
+        return make_exec_result(RunStatus.COMPLETED, 0, "Security Posture Summary: No vulnerabilities found.\n```json\n[]\n```", "")
+
+    with patch("backend.codex.runner.CodexRunner.execute", side_effect=fake_execute):
+        with patch("backend.workspace.manager.get_git_provider", return_value=MockGitWorkspaceProvider()):
+            with patch("backend.sandbox.manager.get_docker_provider", return_value=MockDockerProvider()):
+                with patch.object(SandboxManager, "execute_command") as mock_sandbox_execute:
+                    AgentManager._workflow_worker(run.id, db=db)
+                    mock_sandbox_execute.assert_not_called()
+
+    db.refresh(run)
+    assert run.status == RunStatus.COMPLETED.value
+    execs = db.query(AgentExecution).filter(AgentExecution.engineering_run_id == run.id).order_by(AgentExecution.id.asc()).all()
+    assert len(execs) == 5
+    assert all(e.status == AgentStatus.COMPLETED.value for e in execs)
+    assert len({e.workspace_id for e in execs}) == 5
+    assert all(e.sandbox_id is not None for e in execs)
     db.close()
 
 

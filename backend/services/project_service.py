@@ -93,6 +93,7 @@ class ProjectService:
             project_id=project_id,
             goal=run_in.goal.strip(),
             status=run_in.status or "PENDING",
+            target_subpath=run_in.target_subpath.strip() if run_in.target_subpath else None,
             workspace_id=run_in.workspace_id,
             sandbox_id=run_in.sandbox_id
         )

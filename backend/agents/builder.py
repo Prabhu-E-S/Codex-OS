@@ -48,7 +48,7 @@ class BuilderAgent(BaseAgent):
             prompt = build_builder_retry_prompt(context, architect_plan)
         else:
             prompt = build_builder_prompt(context, architect_plan)
-        target_path = context.workspace_path or context.repository_path
+        target_path = context.get_target_path()
 
         # Execute code implementation via Phase 2 CodexRunner inside assigned workspace
         execution_result = CodexRunner.execute(

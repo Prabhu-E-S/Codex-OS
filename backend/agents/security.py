@@ -56,7 +56,7 @@ class SecurityAgent(BaseAgent):
 
         architect_plan = architect_res.output if architect_res else "No plan provided."
         builder_summary = builder_res.output
-        target_path = context.workspace_path or context.repository_path
+        target_path = context.get_target_path()
 
         # 1. Execute Security Scanner abstraction honestly
         scan_report: AggregatedScanReport = SecurityScannerManager.run_scans(

@@ -29,6 +29,7 @@ def _migrate_schema():
                 ("stdout", "TEXT DEFAULT ''"),
                 ("stderr", "TEXT DEFAULT ''"),
                 ("error_message", "TEXT"),
+                ("target_subpath", "VARCHAR(500)"),
                 ("workspace_id", "INTEGER"),
                 ("sandbox_id", "INTEGER"),
             ]

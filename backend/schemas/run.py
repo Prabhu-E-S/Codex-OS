@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, ConfigDict
 class RunBase(BaseModel):
     goal: str = Field(..., min_length=1, description="Engineering run goal or objective")
     status: Optional[str] = Field("PENDING", max_length=50, description="Run status")
+    target_subpath: Optional[str] = Field(None, max_length=500, description="Optional project subdirectory to execute and scan")
     workspace_id: Optional[int] = Field(None, description="Optional isolated workspace ID")
     sandbox_id: Optional[int] = Field(None, description="Optional Docker sandbox ID")
 
@@ -19,6 +20,7 @@ class RunResponse(BaseModel):
     sandbox_id: Optional[int] = None
     status: str
     goal: str
+    target_subpath: Optional[str] = None
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     exit_code: Optional[int] = None

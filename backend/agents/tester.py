@@ -51,7 +51,7 @@ class TesterAgent(BaseAgent):
         builder_summary = builder_res.output
 
         prompt = build_tester_prompt(context, architect_plan, builder_summary)
-        target_path = context.workspace_path or context.repository_path
+        target_path = context.get_target_path()
 
         # Execute test verification via Phase 2 CodexRunner
         execution_result = CodexRunner.execute(

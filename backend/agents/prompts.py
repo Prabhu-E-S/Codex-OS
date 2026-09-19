@@ -74,6 +74,91 @@ def build_builder_prompt(context: AgentContext, architect_plan: str) -> str:
     )
 
 
+def build_builder_retry_prompt(context: AgentContext, architect_plan: str) -> str:
+    """
+    Format prompt for Builder Agent retry iterations (Phase 7).
+    Incorporates specific feedback from Tester, Breaker, and Security agents.
+    """
+    feedback_sections = []
+
+    if context.previous_failure_reason:
+        feedback_sections.append(
+            f"### Previous Iteration Failure Summary\n{context.previous_failure_reason.strip()}"
+        )
+
+    if context.tester_feedback:
+        feedback_sections.append(
+            f"### Tester Agent Verification Failures\n{context.tester_feedback.strip()}"
+        )
+
+    if context.breaker_findings:
+        breaker_lines = []
+        for i, f in enumerate(context.breaker_findings, 1):
+            sev = f.get("severity", "MEDIUM")
+            title = f.get("title", "Finding")
+            desc = f.get("description", "")
+            evid = f.get("evidence", "")
+            repro = f.get("reproduction", "")
+            breaker_lines.append(
+                f"- **[{sev}] {title}**: {desc}\n"
+                f"  - Reproduction: {repro or 'N/A'}\n"
+                f"  - Evidence: {evid or 'N/A'}"
+            )
+        feedback_sections.append(
+            f"### Breaker Agent Adversarial Findings\n" + "\n".join(breaker_lines)
+        )
+
+    if context.security_findings:
+        sec_lines = []
+        for i, f in enumerate(context.security_findings, 1):
+            sev = f.get("severity", "MEDIUM")
+            title = f.get("title", "Security Finding")
+            desc = f.get("description", "")
+            file_loc = f.get("file_path", "")
+            line = f.get("line_number", "")
+            loc_str = f" in `{file_loc}:{line}`" if file_loc else ""
+            rem = f.get("remediation", "")
+            sec_lines.append(
+                f"- **[{sev}] {title}**{loc_str}: {desc}\n"
+                f"  - Remediation: {rem or 'Fix vulnerable implementation'}"
+            )
+        feedback_sections.append(
+            f"### Security Agent Audit Findings\n" + "\n".join(sec_lines)
+        )
+
+    feedback_text = "\n\n".join(feedback_sections) if feedback_sections else "Previous verification identified issues requiring remediation."
+
+    return (
+        f"# Codex OS — Builder Agent (Iteration {context.iteration} Retry)\n\n"
+        f"You are the **Builder Agent** for the project **{context.project_name}**.\n"
+        f"This is **Iteration {context.iteration}**. A previous implementation attempt produced test failures or security/breaker findings.\n\n"
+        f"## Engineering Goal\n"
+        f"{context.engineering_goal.strip()}\n\n"
+        f"## Assigned Workspace Directory\n"
+        f"{context.workspace_path or context.repository_path}\n\n"
+        f"## Architect Implementation Plan\n"
+        f"{architect_plan.strip()}\n\n"
+        f"## FEEDBACK FROM PREVIOUS ITERATION (MUST BE ADDRESSED)\n"
+        f"{feedback_text}\n\n"
+        f"## Required Actions for Iteration {context.iteration}\n"
+        f"1. Directly inspect the files in your workspace.\n"
+        f"2. Fix the specific test failures, breaker edge cases, and security vulnerabilities detailed above.\n"
+        f"3. Do NOT revert working functionality implemented in earlier iterations.\n"
+        f"4. Ensure code syntax, error handling, and input validation are robust.\n\n"
+        f"## CRITICAL RESTRICTIONS\n"
+        f"- **OPERATE STRICTLY INSIDE YOUR ASSIGNED WORKSPACE.** Never touch the primary repository.\n"
+        f"- **DO NOT EXECUTE ANY GIT COMMANDS** (no `git add`, `git commit`, `git push`, `git checkout`, etc.).\n\n"
+        f"## Required Output Format\n"
+        f"Provide a concise, technical implementation report:\n\n"
+        f"### Summary of Iteration {context.iteration} Remediations\n"
+        f"<Summary of fixes applied to resolve the previous findings>\n\n"
+        f"### Modified / Created Files\n"
+        f"- `<file/path>`: <changes made>\n\n"
+        f"### Technical Implementation Notes\n"
+        f"<Details on how the issues were remediated>\n"
+    )
+
+
 def build_tester_prompt(context: AgentContext, architect_plan: str, builder_summary: str) -> str:
     """
     Format prompt for the Tester Agent.

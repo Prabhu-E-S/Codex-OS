@@ -56,6 +56,13 @@ class Settings(BaseSettings):
     SECURITY_SCANNERS: str = os.getenv("SECURITY_SCANNERS", "pattern_scanner,bandit,pip-audit,npm-audit,semgrep,gitleaks")
     SECURITY_SCAN_NETWORK: bool = os.getenv("SECURITY_SCAN_NETWORK", "false").lower() in ("true", "1", "yes")
 
+    # Autonomous Orchestrator (Phase 7)
+    ORCHESTRATOR_ENABLED: bool = os.getenv("ORCHESTRATOR_ENABLED", "true").lower() in ("true", "1", "yes")
+    ORCHESTRATOR_DEFAULT_MAX_ITERATIONS: int = int(os.getenv("ORCHESTRATOR_DEFAULT_MAX_ITERATIONS", "3"))
+    ORCHESTRATOR_MAX_ITERATIONS_LIMIT: int = int(os.getenv("ORCHESTRATOR_MAX_ITERATIONS_LIMIT", "10"))
+    ORCHESTRATOR_DEFAULT_AGENT_TIMEOUT: int = int(os.getenv("ORCHESTRATOR_DEFAULT_AGENT_TIMEOUT", "900"))
+    ORCHESTRATOR_TOTAL_RUN_TIMEOUT: int = int(os.getenv("ORCHESTRATOR_TOTAL_RUN_TIMEOUT", "3600"))
+
     class Config:
         case_sensitive = True
 

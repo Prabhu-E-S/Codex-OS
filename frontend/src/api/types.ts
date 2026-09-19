@@ -143,6 +143,7 @@ export interface AgentExecution {
   workspace_name: string | null;
   sandbox_id: number | null;
   status: AgentStatus;
+  iteration?: number;
   input_summary: string | null;
   output: string;
   error_message: string | null;
@@ -186,6 +187,7 @@ export interface Finding {
   id: number;
   engineering_run_id: number;
   agent_execution_id: number | null;
+  iteration?: number;
   type: FindingType;
   severity: FindingSeverity;
   category: FindingCategory;
@@ -208,5 +210,62 @@ export interface FindingsSummary {
   by_severity: Record<string, number>;
   by_category: Record<string, number>;
 }
+
+// Phase 7 — Autonomous Orchestrator Types
+export type WorkflowState =
+  | 'PENDING'
+  | 'ARCHITECTING'
+  | 'BUILDING'
+  | 'TESTING'
+  | 'BREAKING'
+  | 'SECURITY_SCANNING'
+  | 'DECIDING'
+  | 'ITERATING'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'CANCELLED'
+  | 'PAUSED';
+
+export type OrchestratorDecision =
+  | 'CONTINUE'
+  | 'RETRY_BUILDER'
+  | 'STOP_SUCCESS'
+  | 'STOP_FAILURE'
+  | 'PAUSE'
+  | 'CANCELLED';
+
+export interface OrchestrationEvent {
+  event_type: string;
+  run_id: number;
+  iteration: number;
+  timestamp: string;
+  agent?: string | null;
+  state?: string | null;
+  decision?: string | null;
+  reason?: string | null;
+  details?: Record<string, unknown> | null;
+}
+
+export interface OrchestrationResponse {
+  id: number;
+  engineering_run_id: number;
+  state: WorkflowState;
+  current_agent: string | null;
+  iteration: number;
+  max_iterations: number;
+  last_decision: OrchestratorDecision | null;
+  last_decision_reason: string | null;
+  pause_requested: boolean;
+  cancel_requested: boolean;
+  failure_reason: string | null;
+  events: OrchestrationEvent[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StartAutonomousRunPayload {
+  max_iterations?: number;
+}
+
 
 

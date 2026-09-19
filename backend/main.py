@@ -41,6 +41,28 @@ def _migrate_schema():
                             logger.info(f"Schema migrated: added column '{col_name}' to engineering_runs")
                         except Exception as exc:
                             logger.warning(f"Failed to add column {col_name}: {exc}")
+
+        if "agent_executions" in inspector.get_table_names():
+            ae_cols = {col["name"] for col in inspector.get_columns("agent_executions")}
+            if "iteration" not in ae_cols:
+                with engine.connect() as conn:
+                    try:
+                        conn.execute(text("ALTER TABLE agent_executions ADD COLUMN iteration INTEGER DEFAULT 1"))
+                        conn.commit()
+                        logger.info("Schema migrated: added column 'iteration' to agent_executions")
+                    except Exception as exc:
+                        logger.warning(f"Failed to add iteration to agent_executions: {exc}")
+
+        if "findings" in inspector.get_table_names():
+            finding_cols = {col["name"] for col in inspector.get_columns("findings")}
+            if "iteration" not in finding_cols:
+                with engine.connect() as conn:
+                    try:
+                        conn.execute(text("ALTER TABLE findings ADD COLUMN iteration INTEGER DEFAULT 1"))
+                        conn.commit()
+                        logger.info("Schema migrated: added column 'iteration' to findings")
+                    except Exception as exc:
+                        logger.warning(f"Failed to add iteration to findings: {exc}")
     except Exception as e:
         logger.warning(f"Schema migration check skipped: {e}")
 
@@ -61,7 +83,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    description="Codex OS — The Autonomous Software Engineering Sandbox (Phase 6: Breaker + Security Agents)",
+    description="Codex OS — The Autonomous Software Engineering Sandbox (Phase 7: Autonomous Orchestrator)",
     lifespan=lifespan
 )
 

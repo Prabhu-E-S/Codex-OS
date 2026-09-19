@@ -22,6 +22,14 @@ class AgentContext:
     previous_results: Dict[AgentType, AgentResult] = field(default_factory=dict)
     timeout_seconds: int = 900
     config: Dict[str, Any] = field(default_factory=dict)
+    # Phase 7 Iteration context
+    iteration: int = 1
+    is_autonomous: bool = False
+    tester_feedback: Optional[str] = None
+    breaker_findings: list[Dict[str, Any]] = field(default_factory=list)
+    security_findings: list[Dict[str, Any]] = field(default_factory=list)
+    previous_failure_reason: Optional[str] = None
+    orchestrator_decision: Optional[str] = None
 
     def get_previous_result(self, agent_type: AgentType) -> Optional[AgentResult]:
         """Retrieve output and status from a previous agent in the workflow."""

@@ -20,8 +20,19 @@ import {
   Zap,
   Lock,
   ShieldAlert,
+  Pause,
+  Play,
+  Sparkles,
+  Layers,
 } from 'lucide-react';
-import { EngineeringRun, RunLogsResponse, AgentExecution, Finding, FindingsSummary } from '../api/types';
+import {
+  EngineeringRun,
+  RunLogsResponse,
+  AgentExecution,
+  Finding,
+  FindingsSummary,
+  OrchestrationResponse,
+} from '../api/types';
 import { api } from '../api/client';
 
 interface RunDetailModalProps {
@@ -41,6 +52,12 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
   const [agents, setAgents] = useState<AgentExecution[]>([]);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [findingsSummary, setFindingsSummary] = useState<FindingsSummary | null>(null);
+  const [orchState, setOrchState] = useState<OrchestrationResponse | null>(null);
+  const [maxIterations, setMaxIterations] = useState<number>(3);
+  const [selectedIteration, setSelectedIteration] = useState<number | 'ALL'>('ALL');
+  const [startingAutonomous, setStartingAutonomous] = useState(false);
+  const [pausing, setPausing] = useState(false);
+  const [resuming, setResuming] = useState(false);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [loadingAgents, setLoadingAgents] = useState(false);
   const [loadingFindings, setLoadingFindings] = useState(false);
@@ -60,23 +77,25 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
     }
   }, [logs, run]);
 
-  // Fetch latest logs, status, agent executions, and findings
+  // Fetch latest logs, status, agent executions, findings, and orchestration state
   const fetchLogsAndStatus = async (runId: number) => {
     try {
-      const [logsData, updatedRun, agentList, findingsList, summaryData] = await Promise.all([
+      const [logsData, updatedRun, agentList, findingsList, summaryData, orchData] = await Promise.all([
         api.getRunLogs(runId),
         api.getRun(runId),
         api.getRunAgents(runId).catch(() => []),
         api.getRunFindings(runId).catch(() => []),
         api.getRunFindingsSummary(runId).catch(() => null),
+        api.getOrchestrationStatus(runId).catch(() => null),
       ]);
       setLogs(logsData);
       setAgents(agentList);
       setFindings(findingsList);
       setFindingsSummary(summaryData);
+      setOrchState(orchData);
       onRunUpdated(updatedRun);
     } catch (err) {
-      console.error('Failed to fetch run logs, agents, and findings:', err);
+      console.error('Failed to fetch run logs, agents, findings, and orchestration:', err);
     }
   };
 
@@ -96,12 +115,13 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
       setAgents([]);
       setFindings([]);
       setFindingsSummary(null);
+      setOrchState(null);
       setExpandedAgentId(null);
       setExpandedFindingId(null);
     }
   }, [isOpen, run?.id]);
 
-  // Polling while run or agent workflow is active
+  // Polling while run or agent workflow or autonomous loop is active
   useEffect(() => {
     if (!isOpen || !run) return;
 
@@ -109,15 +129,18 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
     const isAgentActive = agents.some(
       (a) => a.status === 'STARTING' || a.status === 'RUNNING'
     );
+    const isOrchActive = orchState
+      ? ['ARCHITECTING', 'BUILDING', 'TESTING', 'BREAKING', 'SECURITY_SCANNING', 'DECIDING', 'ITERATING'].includes(orchState.state)
+      : false;
 
-    if (!isRunActive && !isAgentActive) return;
+    if (!isRunActive && !isAgentActive && !isOrchActive) return;
 
     const intervalId = setInterval(() => {
       fetchLogsAndStatus(run.id);
     }, 1500);
 
     return () => clearInterval(intervalId);
-  }, [isOpen, run?.status, run?.id, agents]);
+  }, [isOpen, run?.status, run?.id, agents, orchState?.state]);
 
   if (!isOpen || !run) return null;
 
@@ -147,11 +170,52 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
     }
   };
 
+  const handleStartAutonomous = async () => {
+    setStartingAutonomous(true);
+    try {
+      const resp = await api.startAutonomousRun(run.id, maxIterations);
+      setOrchState(resp);
+      await fetchLogsAndStatus(run.id);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to start autonomous run');
+    } finally {
+      setStartingAutonomous(false);
+    }
+  };
+
+  const handlePause = async () => {
+    setPausing(true);
+    try {
+      const resp = await api.pauseRun(run.id);
+      setOrchState(resp);
+      await fetchLogsAndStatus(run.id);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to pause run');
+    } finally {
+      setPausing(false);
+    }
+  };
+
+  const handleResume = async () => {
+    setResuming(true);
+    try {
+      const resp = await api.resumeRun(run.id);
+      setOrchState(resp);
+      await fetchLogsAndStatus(run.id);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to resume run');
+    } finally {
+      setResuming(false);
+    }
+  };
+
   const handleCancelWorkflow = async () => {
     if (!window.confirm('Are you sure you want to cancel execution?')) return;
     setCancelling(true);
     try {
-      if (agents.length > 0) {
+      if (orchState && !['COMPLETED', 'FAILED', 'CANCELLED'].includes(orchState.state)) {
+        await api.cancelAutonomousRun(run.id);
+      } else if (agents.length > 0) {
         await api.cancelAgentWorkflow(run.id);
       } else {
         await api.cancelRun(run.id);
@@ -243,6 +307,46 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
     }
   };
 
+  const getWorkflowStateBadge = (state: string) => {
+    switch (state) {
+      case 'COMPLETED':
+        return { label: 'COMPLETED', bg: '#ECFDF5', color: '#059669', border: '#A7F3D0' };
+      case 'BUILDING':
+      case 'TESTING':
+      case 'BREAKING':
+      case 'SECURITY_SCANNING':
+      case 'ARCHITECTING':
+      case 'ITERATING':
+      case 'DECIDING':
+        return { label: state, bg: '#EFF6FF', color: '#2563EB', border: '#BFDBFE' };
+      case 'PAUSED':
+        return { label: 'PAUSED', bg: '#FFFBEB', color: '#D97706', border: '#FDE68A' };
+      case 'CANCELLED':
+        return { label: 'CANCELLED', bg: '#F1F5F9', color: '#64748B', border: '#CBD5E1' };
+      case 'FAILED':
+        return { label: 'FAILED', bg: '#FEF2F2', color: '#DC2626', border: '#FECACA' };
+      default:
+        return { label: state, bg: '#F8FAFC', color: '#64748B', border: '#E2E8F0' };
+    }
+  };
+
+  const getDecisionBadge = (decision: string) => {
+    switch (decision) {
+      case 'STOP_SUCCESS':
+        return { label: 'Complete (Success)', bg: '#ECFDF5', color: '#059669', border: '#A7F3D0' };
+      case 'RETRY_BUILDER':
+        return { label: 'Retry Builder', bg: '#FFFBEB', color: '#D97706', border: '#FDE68A' };
+      case 'STOP_FAILURE':
+        return { label: 'Halted (Failure)', bg: '#FEF2F2', color: '#DC2626', border: '#FECACA' };
+      case 'PAUSE':
+        return { label: 'Paused', bg: '#EFF6FF', color: '#2563EB', border: '#BFDBFE' };
+      case 'CANCELLED':
+        return { label: 'Cancelled', bg: '#F1F5F9', color: '#64748B', border: '#CBD5E1' };
+      default:
+        return { label: decision, bg: '#F8FAFC', color: '#64748B', border: '#E2E8F0' };
+    }
+  };
+
   const getAgentIcon = (type: string) => {
     switch (type) {
       case 'ARCHITECT':
@@ -328,7 +432,7 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
             </div>
           )}
 
-          {/* AGENT TEAM PIPELINE (Phase 5) */}
+          {/* AUTONOMOUS ORCHESTRATOR PANEL (Phase 7) */}
           <div
             style={{
               backgroundColor: '#FFFFFF',
@@ -338,156 +442,426 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
               boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Bot size={16} color="#2563EB" />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <Sparkles size={16} color="#2563EB" />
                 <span style={{ fontWeight: 600, fontSize: '13px', color: '#0F172A' }}>
-                  Autonomous Agent Team
+                  Autonomous Orchestrator
                 </span>
-                {loadingAgents && (
-                  <RefreshCw size={11} className="spinning" color="#94A3B8" />
+                {orchState && (
+                  <span
+                    style={{
+                      fontSize: '10px',
+                      fontWeight: 600,
+                      padding: '2px 8px',
+                      borderRadius: '9999px',
+                      backgroundColor: getWorkflowStateBadge(orchState.state).bg,
+                      color: getWorkflowStateBadge(orchState.state).color,
+                      border: `1px solid ${getWorkflowStateBadge(orchState.state).border}`,
+                    }}
+                  >
+                    {orchState.state}
+                  </span>
                 )}
-                <span
-                  style={{
-                    fontSize: '10px',
-                    fontWeight: 600,
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    backgroundColor: '#EFF6FF',
-                    color: '#2563EB',
-                    border: '1px solid #BFDBFE',
-                  }}
-                >
-                  Architect → Builder → Tester → Breaker → Security
-                </span>
+                {orchState && (
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 500,
+                      color: '#475569',
+                      backgroundColor: '#F1F5F9',
+                      padding: '1px 7px',
+                      borderRadius: '4px',
+                      border: '1px solid #CBD5E1',
+                    }}
+                  >
+                    Iteration {orchState.iteration} of {orchState.max_iterations}
+                  </span>
+                )}
+                {orchState?.current_agent && (
+                  <span style={{ fontSize: '11px', color: '#2563EB', fontWeight: 500 }}>
+                    Active: {orchState.current_agent}
+                  </span>
+                )}
               </div>
 
-              {!isActive && agents.length === 0 && (
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={handleStartAgentTeam}
-                  disabled={executingAgentTeam}
-                  style={{ fontSize: '11px', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '5px' }}
-                >
-                  <Bot size={12} />
-                  <span>Start Agent Team</span>
-                </button>
+              {/* Boundary Controls if active or paused */}
+              {orchState && !['COMPLETED', 'FAILED', 'CANCELLED'].includes(orchState.state) && (
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {orchState.state === 'PAUSED' ? (
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={handleResume}
+                      disabled={resuming}
+                      style={{ fontSize: '11px', padding: '3px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <Play size={12} />
+                      <span>{resuming ? 'Resuming...' : 'Resume Run'}</span>
+                    </button>
+                  ) : (
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={handlePause}
+                      disabled={pausing || orchState.pause_requested}
+                      style={{ fontSize: '11px', padding: '3px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <Pause size={12} />
+                      <span>{orchState.pause_requested ? 'Pausing...' : 'Pause at Boundary'}</span>
+                    </button>
+                  )}
+                </div>
               )}
             </div>
 
-            {agents.length === 0 ? (
-              <div style={{ fontSize: '12px', color: '#64748B', lineHeight: 1.4 }}>
-                Execute this engineering goal sequentially with the autonomous team: Architect designs the plan, Builder writes the code in an isolated workspace, and Tester validates with automated test execution.
+            {orchState?.pause_requested && orchState.state !== 'PAUSED' && (
+              <div
+                style={{
+                  marginBottom: '10px',
+                  padding: '6px 10px',
+                  backgroundColor: '#FFFBEB',
+                  border: '1px solid #FDE68A',
+                  borderRadius: '4px',
+                  fontSize: '11px',
+                  color: '#92400E',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <Clock size={13} color="#D97706" />
+                <span>Pause requested. Execution will safely pause as soon as the current agent completes.</span>
               </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {agents.map((agent) => {
-                  const badge = getAgentStatusBadge(agent.status);
-                  const isExpanded = expandedAgentId === agent.id;
+            )}
 
-                  return (
-                    <div
-                      key={agent.id}
-                      style={{
-                        border: '1px solid #E2E8F0',
-                        borderRadius: '6px',
-                        backgroundColor: '#FFFFFF',
-                        overflow: 'hidden',
-                      }}
-                    >
-                      <div
-                        onClick={() => setExpandedAgentId(isExpanded ? null : agent.id)}
-                        style={{
-                          padding: '10px 12px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          cursor: 'pointer',
-                          backgroundColor: isExpanded ? '#F8FAFC' : '#FFFFFF',
-                          transition: 'background-color 0.15s ease',
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          {isExpanded ? <ChevronDown size={14} color="#64748B" /> : <ChevronRight size={14} color="#64748B" />}
-                          {getAgentIcon(agent.agent_type)}
-                          <span style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A' }}>
-                            {agent.agent_name}
-                          </span>
-                          {agent.workspace_name && (
-                            <span style={{ fontSize: '11px', fontFamily: 'JetBrains Mono, monospace', color: '#059669', backgroundColor: '#ECFDF5', padding: '1px 6px', borderRadius: '4px', border: '1px solid #A7F3D0' }}>
-                              {agent.workspace_name}
-                            </span>
-                          )}
-                        </div>
+            {/* Last decision banner if available */}
+            {orchState?.last_decision && (
+              <div
+                style={{
+                  marginBottom: '10px',
+                  padding: '8px 10px',
+                  backgroundColor: '#F8FAFC',
+                  border: '1px solid #E2E8F0',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>ORCHESTRATION DECISION:</span>
+                  <span
+                    style={{
+                      fontSize: '10px',
+                      fontWeight: 600,
+                      padding: '1px 6px',
+                      borderRadius: '4px',
+                      backgroundColor: getDecisionBadge(orchState.last_decision).bg,
+                      color: getDecisionBadge(orchState.last_decision).color,
+                      border: `1px solid ${getDecisionBadge(orchState.last_decision).border}`,
+                    }}
+                  >
+                    {getDecisionBadge(orchState.last_decision).label}
+                  </span>
+                </div>
+                <div style={{ color: '#0F172A', fontSize: '12px', lineHeight: 1.4 }}>
+                  {orchState.last_decision_reason}
+                </div>
+              </div>
+            )}
 
-                        <span
-                          style={{
-                            fontSize: '10px',
-                            fontWeight: 600,
-                            padding: '2px 8px',
-                            borderRadius: '9999px',
-                            backgroundColor: badge.bg,
-                            color: badge.color,
-                            border: `1px solid ${badge.border}`,
-                          }}
-                        >
-                          {badge.label}
-                        </span>
-                      </div>
+            {/* Autonomous execution starter controls */}
+            {!isActive && (!orchState || ['COMPLETED', 'FAILED', 'CANCELLED'].includes(orchState.state)) && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 12px',
+                  backgroundColor: '#F8FAFC',
+                  border: '1px solid #E2E8F0',
+                  borderRadius: '6px',
+                  flexWrap: 'wrap',
+                  gap: '8px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '12px', color: '#475569', fontWeight: 500 }}>Maximum Iterations:</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={maxIterations}
+                    onChange={(e) => setMaxIterations(Math.max(1, Math.min(10, parseInt(e.target.value) || 1)))}
+                    style={{
+                      width: '50px',
+                      padding: '3px 6px',
+                      fontSize: '12px',
+                      borderRadius: '4px',
+                      border: '1px solid #CBD5E1',
+                      textAlign: 'center',
+                    }}
+                  />
+                  <span style={{ fontSize: '11px', color: '#94A3B8' }}>(1–10 loops)</span>
+                </div>
 
-                      {isExpanded && (
-                        <div style={{ padding: '12px', borderTop: '1px solid #E2E8F0', backgroundColor: '#F8FAFC' }}>
-                          {agent.error_message && (
-                            <div className="alert-banner alert-banner-error" style={{ marginBottom: '10px', fontSize: '12px' }}>
-                              {agent.error_message}
-                            </div>
-                          )}
-
-                          <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: '#64748B', marginBottom: '8px' }}>
-                            {agent.workspace_id && <div>Workspace ID: #{agent.workspace_id}</div>}
-                            {agent.sandbox_id && (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <Box size={11} color="#2563EB" />
-                                <span>Sandbox ID: #{agent.sandbox_id}</span>
-                              </div>
-                            )}
-                            {agent.started_at && <div>Started: {new Date(agent.started_at).toLocaleTimeString()}</div>}
-                            {agent.completed_at && <div>Completed: {new Date(agent.completed_at).toLocaleTimeString()}</div>}
-                          </div>
-
-                          <div style={{ fontSize: '11px', fontWeight: 600, color: '#0F172A', marginBottom: '4px' }}>
-                            Agent Output:
-                          </div>
-                          <div
-                            style={{
-                              backgroundColor: '#0F172A',
-                              color: '#F8FAFC',
-                              padding: '10px 12px',
-                              borderRadius: '6px',
-                              fontSize: '11.5px',
-                              fontFamily: 'JetBrains Mono, monospace',
-                              whiteSpace: 'pre-wrap',
-                              maxHeight: '260px',
-                              overflowY: 'auto',
-                              lineHeight: 1.5,
-                            }}
-                          >
-                            {agent.output ? agent.output : '(No output recorded)'}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={handleStartAutonomous}
+                  disabled={startingAutonomous || executing || executingAgentTeam}
+                  style={{ fontSize: '11px', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '5px' }}
+                >
+                  <Sparkles size={12} />
+                  <span>{startingAutonomous ? 'Starting Orchestrator...' : 'Start Autonomous Run'}</span>
+                </button>
               </div>
             )}
           </div>
 
-          {/* ADVERSARIAL & SECURITY FINDINGS (Phase 6) */}
+          {/* AGENT TEAM PIPELINE & MULTI-ITERATION TIMELINE */}
           {(() => {
+            const distinctIterations = Array.from(new Set(agents.map((a) => a.iteration || 1))).sort((a, b) => a - b);
+
+            const renderAgentCard = (agent: AgentExecution) => {
+              const badge = getAgentStatusBadge(agent.status);
+              const isExpanded = expandedAgentId === agent.id;
+
+              return (
+                <div
+                  key={agent.id}
+                  style={{
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '6px',
+                    backgroundColor: '#FFFFFF',
+                    overflow: 'hidden',
+                    marginBottom: '6px',
+                  }}
+                >
+                  <div
+                    onClick={() => setExpandedAgentId(isExpanded ? null : agent.id)}
+                    style={{
+                      padding: '10px 12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      cursor: 'pointer',
+                      backgroundColor: isExpanded ? '#F8FAFC' : '#FFFFFF',
+                      transition: 'background-color 0.15s ease',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      {isExpanded ? <ChevronDown size={14} color="#64748B" /> : <ChevronRight size={14} color="#64748B" />}
+                      {getAgentIcon(agent.agent_type)}
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A' }}>
+                        {agent.agent_name}
+                      </span>
+                      {agent.iteration && distinctIterations.length > 1 && (
+                        <span style={{ fontSize: '10px', color: '#64748B', backgroundColor: '#F1F5F9', padding: '1px 5px', borderRadius: '3px' }}>
+                          Iter {agent.iteration}
+                        </span>
+                      )}
+                      {agent.workspace_name && (
+                        <span style={{ fontSize: '11px', fontFamily: 'JetBrains Mono, monospace', color: '#059669', backgroundColor: '#ECFDF5', padding: '1px 6px', borderRadius: '4px', border: '1px solid #A7F3D0' }}>
+                          {agent.workspace_name}
+                        </span>
+                      )}
+                    </div>
+
+                    <span
+                      style={{
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        padding: '2px 8px',
+                        borderRadius: '9999px',
+                        backgroundColor: badge.bg,
+                        color: badge.color,
+                        border: `1px solid ${badge.border}`,
+                      }}
+                    >
+                      {badge.label}
+                    </span>
+                  </div>
+
+                  {isExpanded && (
+                    <div style={{ padding: '12px', borderTop: '1px solid #E2E8F0', backgroundColor: '#F8FAFC' }}>
+                      {agent.error_message && (
+                        <div className="alert-banner alert-banner-error" style={{ marginBottom: '10px', fontSize: '12px' }}>
+                          {agent.error_message}
+                        </div>
+                      )}
+
+                      <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: '#64748B', marginBottom: '8px', flexWrap: 'wrap' }}>
+                        <div>Iteration: #{agent.iteration || 1}</div>
+                        {agent.workspace_id && <div>Workspace ID: #{agent.workspace_id}</div>}
+                        {agent.sandbox_id && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Box size={11} color="#2563EB" />
+                            <span>Sandbox ID: #{agent.sandbox_id}</span>
+                          </div>
+                        )}
+                        {agent.started_at && <div>Started: {new Date(agent.started_at).toLocaleTimeString()}</div>}
+                        {agent.completed_at && <div>Completed: {new Date(agent.completed_at).toLocaleTimeString()}</div>}
+                      </div>
+
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: '#0F172A', marginBottom: '4px' }}>
+                        Agent Output:
+                      </div>
+                      <div
+                        style={{
+                          backgroundColor: '#0F172A',
+                          color: '#F8FAFC',
+                          padding: '10px 12px',
+                          borderRadius: '6px',
+                          fontSize: '11.5px',
+                          fontFamily: 'JetBrains Mono, monospace',
+                          whiteSpace: 'pre-wrap',
+                          maxHeight: '260px',
+                          overflowY: 'auto',
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        {agent.output ? agent.output : '(No output recorded)'}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            };
+
+            return (
+              <div
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  border: '1px solid #E2E8F0',
+                  borderRadius: '8px',
+                  padding: '14px',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Bot size={16} color="#2563EB" />
+                    <span style={{ fontWeight: 600, fontSize: '13px', color: '#0F172A' }}>
+                      Agent Team Execution
+                    </span>
+                    {loadingAgents && (
+                      <RefreshCw size={11} className="spinning" color="#94A3B8" />
+                    )}
+                    <span
+                      style={{
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        backgroundColor: '#EFF6FF',
+                        color: '#2563EB',
+                        border: '1px solid #BFDBFE',
+                      }}
+                    >
+                      Architect → Builder → Tester → Breaker → Security
+                    </span>
+                  </div>
+
+                  {!isActive && agents.length === 0 && (
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={handleStartAgentTeam}
+                      disabled={executingAgentTeam}
+                      style={{ fontSize: '11px', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '5px' }}
+                    >
+                      <Bot size={12} />
+                      <span>Start Agent Team (Single Pass)</span>
+                    </button>
+                  )}
+                </div>
+
+                {agents.length === 0 ? (
+                  <div style={{ fontSize: '12px', color: '#64748B', lineHeight: 1.4 }}>
+                    Execute this engineering goal sequentially with the autonomous team: Architect designs the plan, Builder writes code, Tester validates, Breaker analyzes edge cases, and Security scans vulnerabilities.
+                  </div>
+                ) : distinctIterations.length > 1 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {distinctIterations.map((iterNum) => {
+                      const iterAgents = agents.filter((a) => (a.iteration || 1) === iterNum);
+                      const iterDecisionEvt = orchState?.events?.find(
+                        (e) => e.iteration === iterNum && e.event_type === 'decision.made'
+                      );
+
+                      return (
+                        <div
+                          key={iterNum}
+                          style={{
+                            border: '1px solid #E2E8F0',
+                            borderRadius: '6px',
+                            padding: '10px 12px',
+                            backgroundColor: '#FAFAFA',
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <Layers size={14} color="#2563EB" />
+                              <span style={{ fontSize: '12px', fontWeight: 700, color: '#0F172A' }}>
+                                Iteration {iterNum}
+                              </span>
+                              <span style={{ fontSize: '11px', color: '#64748B' }}>({iterAgents.length} executions)</span>
+                            </div>
+
+                            {iterDecisionEvt && iterDecisionEvt.decision && (
+                              <span
+                                style={{
+                                  fontSize: '10px',
+                                  fontWeight: 600,
+                                  padding: '2px 8px',
+                                  borderRadius: '9999px',
+                                  backgroundColor: getDecisionBadge(iterDecisionEvt.decision).bg,
+                                  color: getDecisionBadge(iterDecisionEvt.decision).color,
+                                  border: `1px solid ${getDecisionBadge(iterDecisionEvt.decision).border}`,
+                                }}
+                              >
+                                {getDecisionBadge(iterDecisionEvt.decision).label}
+                              </span>
+                            )}
+                          </div>
+
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            {iterAgents.map(renderAgentCard)}
+                          </div>
+
+                          {iterDecisionEvt && iterDecisionEvt.reason && (
+                            <div
+                              style={{
+                                marginTop: '6px',
+                                padding: '6px 8px',
+                                backgroundColor: '#FFFFFF',
+                                border: '1px solid #E2E8F0',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                color: '#475569',
+                              }}
+                            >
+                              <strong>Decision:</strong> {iterDecisionEvt.reason}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    {agents.map(renderAgentCard)}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* ADVERSARIAL & SECURITY FINDINGS (Phase 6 & Phase 7 Multi-Iteration) */}
+          {(() => {
+            const distinctFindingIters = Array.from(
+              new Set(findings.map((f) => f.iteration || 1))
+            ).sort((a, b) => a - b);
+
             const filteredFindings = findings.filter((f) => {
-              if (findingTypeFilter === 'BREAKER') return f.type === 'BREAKER';
-              if (findingTypeFilter === 'SECURITY') return f.type === 'SECURITY';
+              if (findingTypeFilter === 'BREAKER' && f.type !== 'BREAKER') return false;
+              if (findingTypeFilter === 'SECURITY' && f.type !== 'SECURITY') return false;
+              if (selectedIteration !== 'ALL' && (f.iteration || 1) !== selectedIteration) return false;
               return true;
             });
 
@@ -542,30 +916,73 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
                   </div>
 
                   {/* Filter Pills */}
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    {(['ALL', 'BREAKER', 'SECURITY'] as const).map((tab) => (
-                      <button
-                        key={tab}
-                        type="button"
-                        onClick={() => setFindingTypeFilter(tab)}
-                        style={{
-                          fontSize: '11px',
-                          fontWeight: 500,
-                          padding: '3px 8px',
-                          borderRadius: '4px',
-                          border: findingTypeFilter === tab ? '1px solid #2563EB' : '1px solid #E2E8F0',
-                          backgroundColor: findingTypeFilter === tab ? '#EFF6FF' : '#FFFFFF',
-                          color: findingTypeFilter === tab ? '#2563EB' : '#64748B',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {tab === 'ALL'
-                          ? `All (${findings.length})`
-                          : tab === 'BREAKER'
-                          ? `Breaker (${breakerCount})`
-                          : `Security (${securityCount})`}
-                      </button>
-                    ))}
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {distinctFindingIters.length > 1 && (
+                      <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
+                        <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600 }}>Iter:</span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedIteration('ALL')}
+                          style={{
+                            fontSize: '10px',
+                            fontWeight: 500,
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            border: selectedIteration === 'ALL' ? '1px solid #7C3AED' : '1px solid #E2E8F0',
+                            backgroundColor: selectedIteration === 'ALL' ? '#F5F3FF' : '#FFFFFF',
+                            color: selectedIteration === 'ALL' ? '#7C3AED' : '#64748B',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          All
+                        </button>
+                        {distinctFindingIters.map((it) => (
+                          <button
+                            key={it}
+                            type="button"
+                            onClick={() => setSelectedIteration(it)}
+                            style={{
+                              fontSize: '10px',
+                              fontWeight: 500,
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              border: selectedIteration === it ? '1px solid #7C3AED' : '1px solid #E2E8F0',
+                              backgroundColor: selectedIteration === it ? '#F5F3FF' : '#FFFFFF',
+                              color: selectedIteration === it ? '#7C3AED' : '#64748B',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Iter {it}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      {(['ALL', 'BREAKER', 'SECURITY'] as const).map((tab) => (
+                        <button
+                          key={tab}
+                          type="button"
+                          onClick={() => setFindingTypeFilter(tab)}
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 500,
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            border: findingTypeFilter === tab ? '1px solid #2563EB' : '1px solid #E2E8F0',
+                            backgroundColor: findingTypeFilter === tab ? '#EFF6FF' : '#FFFFFF',
+                            color: findingTypeFilter === tab ? '#2563EB' : '#64748B',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {tab === 'ALL'
+                            ? `All (${findings.length})`
+                            : tab === 'BREAKER'
+                            ? `Breaker (${breakerCount})`
+                            : `Security (${securityCount})`}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
@@ -745,6 +1162,21 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
                                 }}
                               >
                                 {finding.type}
+                              </span>
+
+                              {/* Iteration Badge */}
+                              <span
+                                style={{
+                                  fontSize: '10px',
+                                  fontWeight: 600,
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  backgroundColor: '#F1F5F9',
+                                  color: '#475569',
+                                  border: '1px solid #CBD5E1',
+                                }}
+                              >
+                                Iter {finding.iteration || 1}
                               </span>
 
                               {/* Title */}
@@ -971,36 +1403,86 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
 
         {/* Footer Actions */}
         <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             {isActive ? (
-              <button
-                type="button"
-                className="btn btn-danger btn-sm"
-                onClick={handleCancelWorkflow}
-                disabled={cancelling}
-                id="btn-cancel-run-modal"
-              >
-                <StopCircle size={13} />
-                <span>{cancelling ? 'Cancelling...' : 'Cancel Execution'}</span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="btn btn-danger btn-sm"
+                  onClick={handleCancelWorkflow}
+                  disabled={cancelling}
+                  id="btn-cancel-run-modal"
+                >
+                  <StopCircle size={13} />
+                  <span>{cancelling ? 'Cancelling...' : 'Cancel Execution'}</span>
+                </button>
+
+                {orchState && orchState.state !== 'PAUSED' && !['COMPLETED', 'FAILED', 'CANCELLED'].includes(orchState.state) && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={handlePause}
+                    disabled={pausing || orchState.pause_requested}
+                    id="btn-pause-run-modal"
+                    title="Pause execution safely at the next agent transition boundary"
+                  >
+                    <Pause size={13} color="#D97706" />
+                    <span>{pausing || orchState.pause_requested ? 'Pausing...' : 'Pause at Boundary'}</span>
+                  </button>
+                )}
+
+                {orchState && orchState.state === 'PAUSED' && (
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={handleResume}
+                    disabled={resuming}
+                    id="btn-resume-run-modal"
+                    title="Resume paused autonomous execution"
+                  >
+                    <Play size={13} />
+                    <span>{resuming ? 'Resuming...' : 'Resume Execution'}</span>
+                  </button>
+                )}
+              </>
             ) : (
               <>
                 <button
                   type="button"
                   className="btn btn-primary btn-sm"
+                  onClick={handleStartAutonomous}
+                  disabled={startingAutonomous || executingAgentTeam || executing}
+                  id="btn-start-autonomous-modal"
+                  style={{
+                    backgroundColor: '#7C3AED',
+                    borderColor: '#6D28D9',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                  title="Run autonomous multi-iteration engineering loop with automated Builder retries"
+                >
+                  <Sparkles size={13} />
+                  <span>{startingAutonomous ? 'Starting Autonomous Loop...' : 'Run Autonomously'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
                   onClick={handleStartAgentTeam}
-                  disabled={executingAgentTeam || executing}
+                  disabled={executingAgentTeam || executing || startingAutonomous}
                   id="btn-start-agent-team-modal"
+                  title="Run single-pass agent team (Architect → Builder → Tester → Breaker → Security)"
                 >
                   <Bot size={13} />
-                  <span>{executingAgentTeam ? 'Starting Agents...' : 'Run Agent Team'}</span>
+                  <span>{executingAgentTeam ? 'Starting Agents...' : 'Run Agent Team (Manual)'}</span>
                 </button>
 
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
                   onClick={handleStartRun}
-                  disabled={executing || executingAgentTeam}
+                  disabled={executing || executingAgentTeam || startingAutonomous}
                   id="btn-execute-run-modal"
                   title="Run directly with Codex without agent decomposition"
                 >

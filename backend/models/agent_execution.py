@@ -16,6 +16,7 @@ class AgentExecution(Base):
     sandbox_id = Column(Integer, ForeignKey("sandboxes.id", ondelete="SET NULL"), nullable=True, index=True)
 
     status = Column(String(50), nullable=False, default="PENDING")  # PENDING, STARTING, RUNNING, COMPLETED, FAILED, CANCELLED
+    iteration = Column(Integer, nullable=False, default=1)
 
     input_summary = Column(Text, nullable=True)
     output = Column(Text, default="", nullable=False)

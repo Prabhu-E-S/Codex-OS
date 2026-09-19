@@ -1,19 +1,17 @@
 # Codex OS — The Autonomous Software Engineering Sandbox
 
-> **Phase 1: Project Foundation | Phase 2: Codex Execution Engine | Phase 3: Git Worktree System | Phase 4: Docker Sandbox Engine | Phase 5: First Autonomous Agent Team | Phase 6: Breaker + Security Agents**
+> **Phase 1: Project Foundation | Phase 2: Codex Execution Engine | Phase 3: Git Worktree System | Phase 4: Docker Sandbox Engine | Phase 5: First Autonomous Agent Team | Phase 6: Breaker + Security Agents | Phase 7: Autonomous Orchestrator**
 
 Codex OS is an AI-native software engineering sandbox. The ultimate autonomous workflow encompasses:
 **Understand → Plan → Build → Test → Break → Security → Debug → Evaluate → Ship**
 
-Phase 6 extends the **Autonomous Agent Team** to 5 specialized agents:
-1. **Architect Agent**: Inspects repository architecture, dependencies, and constraints to produce a structured implementation plan without modifying code.
-2. **Builder Agent**: Implements the Architect's plan inside its assigned isolated workspace and sandbox without touching the primary repository.
-3. **Tester Agent**: Verifies the implementation by executing automated tests in its controlled sandbox and outputting structured pass/fail metrics.
-4. **Breaker Agent**: Actively attacks the implementation by designing and executing adversarial test scenarios (edge cases, empty/null inputs, boundary conditions, invalid state transitions) inside the sandbox, producing structured evidence-backed findings.
-5. **Security Agent**: Inspects the implementation for vulnerabilities, hard-coded secrets, injection vectors, and misconfigurations using a pluggable scanner abstraction and static analysis, honestly reporting scanner availability without fabricating findings.
+Phase 7 introduces the **Autonomous Orchestrator**, turning the sequential agent workflow into an autonomous, self-healing engineering loop:
+$$\text{Architect (Iter 1)} \longrightarrow \left[ \text{Builder} \longrightarrow \text{Tester} \longrightarrow \text{Breaker} \longrightarrow \text{Security} \right]_{\text{Iteration } N} \longrightarrow \text{Deterministic Decision}$$
 
-Sequential Execution Workflow:
-$$\text{Engineering Goal} \longrightarrow \text{Architect} \longrightarrow \text{Builder} \longrightarrow \text{Tester} \longrightarrow \text{Breaker} \longrightarrow \text{Security} \longrightarrow \text{Findings & Report}$$
+- **Self-Healing Builder Retries**: When the Tester detects test failures or Breaker/Security discovers `HIGH` or `CRITICAL` findings, the Orchestrator feeds structured feedback directly back into the Builder for targeted remediation.
+- **Deterministic Decision Policy**: Evaluates test passes/failures, blocker severities, agent health, and loop thresholds to decide between `RETRY_BUILDER`, `STOP_SUCCESS`, or `STOP_FAILURE` with transparent human-readable explanations.
+- **Multi-Iteration Preservation**: All agent executions and findings preserve historical iteration tags without ever overwriting past audit trails.
+- **Safety & Boundary Controls**: Includes maximum iteration limits (default: 3, configurable up to 10), boundary-safe pause, safe resumption, and immediate cancellation.
 
 ---
 
@@ -58,13 +56,21 @@ Codex OS
 │   │   ├── security.py       # SecurityAgent (scanner coordination & static vulnerability analysis)
 │   │   ├── manager.py        # AgentManager (sequential 5-agent coordination & finding persistence)
 │   │   └── exceptions.py     # Agent subsystem domain exceptions
+│   ├── orchestrator/         # Phase 7 Autonomous Orchestrator Subsystem
+│   │   ├── models.py         # WorkflowState, OrchestratorDecision, DecisionResult, OrchestrationEvent
+│   │   ├── state_machine.py  # WorkflowStateMachine: transitions, validation, terminal state enforcement
+│   │   ├── policy.py         # OrchestratorPolicy: deterministic decisions & human-readable reasons
+│   │   ├── feedback.py       # IterationFeedbackCollector: structured feedback for Builder retries
+│   │   ├── manager.py        # OrchestratorManager: autonomous execution loop, pause, resume, cancel
+│   │   └── exceptions.py     # Orchestrator domain exceptions (InvalidStateTransition, MaxIterations)
 │   ├── models/               # SQLAlchemy Relational Models
 │   │   ├── project.py        # Project model (with workspaces relationship)
 │   │   ├── workspace.py      # Workspace model (name, path, branch, sandboxes relationship)
 │   │   ├── sandbox.py        # Sandbox model (status, container_id, limits, timestamps)
-│   │   ├── agent_execution.py# AgentExecution model (run, agent_type, status, output, workspace, sandbox)
-│   │   ├── finding.py        # Finding model (run, agent_exec, type, severity, category, evidence, remediation)
-│   │   └── run.py            # EngineeringRun model (workspace_id, sandbox_id, agent_executions, findings)
+│   │   ├── agent_execution.py# AgentExecution model (with multi-iteration support)
+│   │   ├── finding.py        # Finding model (with multi-iteration preservation)
+│   │   ├── orchestration.py  # OrchestrationState model (state, iteration, events, decisions)
+│   │   └── run.py            # EngineeringRun model (with orchestration_state relationship)
 │   ├── schemas/              # Pydantic validation schemas
 │   │   ├── project.py        # Project schemas
 │   │   ├── workspace.py      # WorkspaceCreate & WorkspaceResponse
@@ -332,6 +338,13 @@ Every discovered weakness or security vulnerability is stored as an evidence-bac
 - `GET /api/runs/{run_id}/findings/summary` — Retrieve aggregated findings distribution (total, breaker, security, by severity, by category).
 - `GET /api/runs/{run_id}/findings/{finding_id}` — Get single finding details with evidence, reproduction, and remediation.
 
+### Autonomous Orchestrator (Phase 7)
+- `POST /api/runs/{run_id}/start-autonomous` — Launch autonomous self-healing multi-iteration loop (`max_iterations`).
+- `GET /api/runs/{run_id}/orchestration` — Get real-time workflow state, current agent, iteration, decisions, reasons, and event history.
+- `POST /api/runs/{run_id}/pause` — Request safe pause at the next agent transition boundary.
+- `POST /api/runs/{run_id}/resume` — Resume execution from paused state.
+- `POST /api/runs/{run_id}/orchestration/cancel` — Cancel active autonomous loop immediately.
+
 ### Engineering Runs
 - `GET /api/projects/{id}/runs` — List runs for a project.
 - `POST /api/projects/{id}/runs` — Create an engineering run (`goal`, optional `workspace_id`, optional `sandbox_id`).
@@ -342,11 +355,9 @@ Every discovered weakness or security vulnerability is stored as an evidence-bac
 
 ---
 
-## Out of Scope for Phase 6 (Scheduled for Future Phases)
+## Out of Scope for Phase 7 (Scheduled for Future Phases)
 
-- **Judge Agent** (Phase 8: Evaluation & pass-rate scoring)
-- **Engineering Score** (Phase 8)
-- **Autonomous Retry & Recovery Loops** (Phase 7: Self-healing Builder loops based on Breaker/Security findings)
-- **Automatic Fix Application** (Breaker and Security identify weaknesses; Builder remains responsible for fixes in Phase 7)
-- **Automated Branch Merging & Pull Request Generation**
-- **Real-time WebSockets**
+- **Judge Agent & Evaluation System** (Phase 8: Evaluation, benchmark suites, and pass-rate scoring)
+- **Engineering Score Calculation** (Phase 8: Comprehensive engineering score computation across dimensions)
+- **Control Room & WebSockets** (Phase 9: Real-time bi-directional streaming control room)
+- **Automated Branch Merging & Pull Request Generation** (Phase 10: Ship phase)

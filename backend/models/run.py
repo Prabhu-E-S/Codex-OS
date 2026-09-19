@@ -49,6 +49,12 @@ class EngineeringRun(Base):
         cascade="all, delete-orphan",
         order_by="Finding.id"
     )
+    orchestration_state = relationship(
+        "OrchestrationState",
+        back_populates="engineering_run",
+        uselist=False,
+        cascade="all, delete-orphan"
+    )
 
     @property
     def workspace_name(self) -> str | None:

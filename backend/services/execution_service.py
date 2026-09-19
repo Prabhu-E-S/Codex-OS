@@ -213,6 +213,15 @@ class ExecutionService:
             if ws and ws.status == WorkspaceStatus.IN_USE.value and ws.deleted_at is None:
                 ws.status = WorkspaceStatus.READY.value
 
+        # Update orchestration state if active
+        from backend.models.orchestration import OrchestrationState
+        orch = db.query(OrchestrationState).filter(OrchestrationState.engineering_run_id == run_id).first()
+        if orch:
+            orch.cancel_requested = True
+            if orch.state not in ("COMPLETED", "FAILED", "CANCELLED"):
+                orch.state = "CANCELLED"
+                orch.current_agent = None
+
         db.commit()
         db.refresh(run)
         return run

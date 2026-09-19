@@ -16,6 +16,8 @@ import {
   AgentWorkflowStatusResponse,
   Finding,
   FindingsSummary,
+  OrchestrationResponse,
+  StartAutonomousRunPayload,
 } from './types';
 
 
@@ -178,5 +180,27 @@ export const api = {
     request<FindingsSummary>(`/runs/${runId}/findings/summary`),
   getFinding: (runId: number, findingId: number): Promise<Finding> =>
     request<Finding>(`/runs/${runId}/findings/${findingId}`),
+
+  startAutonomousRun: (runId: number, payload?: StartAutonomousRunPayload | number): Promise<OrchestrationResponse> => {
+    const body = typeof payload === 'number' ? { max_iterations: payload } : (payload ?? { max_iterations: 3 });
+    return request<OrchestrationResponse>(`/runs/${runId}/start-autonomous`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  },
+  getOrchestrationStatus: (runId: number): Promise<OrchestrationResponse> =>
+    request<OrchestrationResponse>(`/runs/${runId}/orchestration`),
+  pauseRun: (runId: number): Promise<OrchestrationResponse> =>
+    request<OrchestrationResponse>(`/runs/${runId}/pause`, {
+      method: 'POST',
+    }),
+  resumeRun: (runId: number): Promise<OrchestrationResponse> =>
+    request<OrchestrationResponse>(`/runs/${runId}/resume`, {
+      method: 'POST',
+    }),
+  cancelAutonomousRun: (runId: number): Promise<OrchestrationResponse> =>
+    request<OrchestrationResponse>(`/runs/${runId}/orchestration/cancel`, {
+      method: 'POST',
+    }),
 };
 

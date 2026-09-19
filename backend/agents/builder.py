@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from backend.agents.base import BaseAgent
 from backend.agents.models import AgentType, AgentStatus, AgentResult
 from backend.agents.context import AgentContext
-from backend.agents.prompts import build_builder_prompt
+from backend.agents.prompts import build_builder_prompt, build_builder_retry_prompt
 from backend.codex.runner import CodexRunner
 from backend.codex.models import RunStatus
 
@@ -25,7 +25,7 @@ class BuilderAgent(BaseAgent):
 
     def run(self, context: AgentContext) -> AgentResult:
         started_at = datetime.now(timezone.utc)
-        logger.info(f"Builder Agent starting for run {context.engineering_run_id}")
+        logger.info(f"Builder Agent starting for run {context.engineering_run_id} (iteration {context.iteration})")
 
         # Ingest upstream Architect result
         architect_result = context.get_previous_result(AgentType.ARCHITECT)
@@ -44,7 +44,10 @@ class BuilderAgent(BaseAgent):
             )
 
         architect_plan = architect_result.output
-        prompt = build_builder_prompt(context, architect_plan)
+        if context.iteration > 1 or context.tester_feedback or context.breaker_findings or context.security_findings:
+            prompt = build_builder_retry_prompt(context, architect_plan)
+        else:
+            prompt = build_builder_prompt(context, architect_plan)
         target_path = context.workspace_path or context.repository_path
 
         # Execute code implementation via Phase 2 CodexRunner inside assigned workspace

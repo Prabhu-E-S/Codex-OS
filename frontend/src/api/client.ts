@@ -12,6 +12,8 @@ import {
   SandboxExecutePayload,
   CommandResult,
   DockerStatusResponse,
+  AgentExecution,
+  AgentWorkflowStatusResponse,
 } from './types';
 
 
@@ -142,6 +144,20 @@ export const api = {
     request<CommandResult>(`/sandboxes/${sandboxId}/execute`, {
       method: 'POST',
       body: JSON.stringify(payload),
+    }),
+
+  // Autonomous Agent Team (Phase 5)
+  executeAgentWorkflow: (runId: number): Promise<AgentWorkflowStatusResponse> =>
+    request<AgentWorkflowStatusResponse>(`/runs/${runId}/agents/execute`, {
+      method: 'POST',
+    }),
+  getRunAgents: (runId: number): Promise<AgentExecution[]> =>
+    request<AgentExecution[]>(`/runs/${runId}/agents`),
+  getAgentExecution: (agentExecutionId: number): Promise<AgentExecution> =>
+    request<AgentExecution>(`/agent-executions/${agentExecutionId}`),
+  cancelAgentWorkflow: (runId: number): Promise<AgentWorkflowStatusResponse> =>
+    request<AgentWorkflowStatusResponse>(`/runs/${runId}/agents/cancel`, {
+      method: 'POST',
     }),
 };
 

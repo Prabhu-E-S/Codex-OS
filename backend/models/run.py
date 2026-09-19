@@ -37,6 +37,12 @@ class EngineeringRun(Base):
     project = relationship("Project", back_populates="runs")
     workspace = relationship("Workspace", back_populates="runs")
     sandbox = relationship("Sandbox", back_populates="runs")
+    agent_executions = relationship(
+        "AgentExecution",
+        back_populates="engineering_run",
+        cascade="all, delete-orphan",
+        order_by="AgentExecution.id"
+    )
 
     @property
     def workspace_name(self) -> str | None:

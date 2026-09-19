@@ -8,6 +8,7 @@ from backend.schemas.sandbox import (
     CommandResultResponse,
     DockerStatusResponse,
 )
+from backend.schemas.agent import AgentExecutionResponse, AgentWorkflowStatusResponse
 
 __all__ = [
     "ProjectBase",
@@ -26,6 +27,8 @@ __all__ = [
     "SandboxExecuteRequest",
     "CommandResultResponse",
     "DockerStatusResponse",
+    "AgentExecutionResponse",
+    "AgentWorkflowStatusResponse",
 ]
 
 

@@ -129,3 +129,34 @@ export interface HealthResponse {
   database_dialect?: string | null;
   database_error?: string | null;
 }
+
+export type AgentType = 'ARCHITECT' | 'BUILDER' | 'TESTER';
+
+export type AgentStatus = 'PENDING' | 'STARTING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+
+export interface AgentExecution {
+  id: number;
+  engineering_run_id: number;
+  agent_type: AgentType;
+  agent_name: string;
+  workspace_id: number | null;
+  workspace_name: string | null;
+  sandbox_id: number | null;
+  status: AgentStatus;
+  input_summary: string | null;
+  output: string;
+  error_message: string | null;
+  exit_code: number | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AgentWorkflowStatusResponse {
+  run_id: number;
+  run_status: string;
+  active_agent: string | null;
+  agents: AgentExecution[];
+}
+

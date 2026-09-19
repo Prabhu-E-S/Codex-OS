@@ -3,6 +3,7 @@ import { Header } from './components/Header';
 import { Sidebar, NavTab } from './components/Sidebar';
 import { OverviewView } from './views/OverviewView';
 import { WorkspacesView } from './views/WorkspacesView';
+import { AgentsView } from './views/AgentsView';
 import { PlaceholderView } from './components/PlaceholderView';
 import { CreateProjectModal } from './components/CreateProjectModal';
 import { CreateRunModal } from './components/CreateRunModal';
@@ -204,6 +205,11 @@ export const App: React.FC = () => {
             )
           ) : activeTab === 'workspaces' ? (
             <WorkspacesView currentProject={currentProject} />
+          ) : activeTab === 'agents' ? (
+            <AgentsView
+              currentProject={currentProject}
+              onOpenCreateRun={() => setIsCreateRunOpen(true)}
+            />
           ) : (
             <PlaceholderView
               tab={activeTab}

@@ -24,7 +24,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const navItems: { id: NavTab; label: string; icon: React.ReactNode; isUpcoming?: boolean }[] = [
     { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={16} /> },
     { id: 'workspaces', label: 'Workspaces', icon: <FolderGit2 size={16} /> },
-    { id: 'agents', label: 'Agents', icon: <Bot size={16} />, isUpcoming: true },
+    { id: 'agents', label: 'Agents', icon: <Bot size={16} /> },
     { id: 'evaluations', label: 'Evaluations', icon: <CheckSquare size={16} />, isUpcoming: true },
     { id: 'snapshots', label: 'Snapshots', icon: <Camera size={16} />, isUpcoming: true },
   ];

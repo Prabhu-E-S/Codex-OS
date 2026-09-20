@@ -88,7 +88,7 @@ After setting up
 
 ### Demo / Pitch Video
 
-* **Walkthrough Video**: *[Watch the Codex OS Autonomous Demo on Drive]([(https://drive.google.com/drive/folders/13WLFOb98MgdJw0CkvnP-OKSFON3sOlY_?usp=sharing)])*
+* **Walkthrough Video**: "https://drive.google.com/drive/folders/13WLFOb98MgdJw0CkvnP-OKSFON3sOlY_?usp=sharing"
 * *Summary*: The demo video demonstrates creating an autonomous run on a target project (`Task Forge AI`), observing Iteration 1 Breaker finding discovery, watching Builder self-heal the codebase in Iteration 2, and verifying finding resolution to `RESOLVED` in the Control Room.
 
 ---

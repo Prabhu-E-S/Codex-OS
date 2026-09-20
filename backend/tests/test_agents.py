@@ -285,6 +285,39 @@ def test_downstream_agents_receive_builder_target_snapshot(setup_teardown):
     db.close()
 
 
+def test_builder_target_sync_preserves_ignored_runtime_cache(setup_teardown):
+    """
+    Downstream sync must not fail on ignored runtime cache directories left by
+    previous agent/test execution, especially Windows-owned .pytest_cache paths.
+    """
+    temp_dir = setup_teardown
+    source = os.path.join(temp_dir, "builder", "demo-project")
+    destination = os.path.join(temp_dir, "tester", "demo-project")
+
+    os.makedirs(os.path.join(source, "backend"), exist_ok=True)
+    os.makedirs(os.path.join(destination, "backend", ".pytest_cache"), exist_ok=True)
+
+    stale_file = os.path.join(destination, "backend", "stale.py")
+    cache_file = os.path.join(destination, "backend", ".pytest_cache", "README.md")
+    synced_file = os.path.join(destination, "backend", "app.py")
+
+    with open(os.path.join(source, "backend", "app.py"), "w", encoding="utf-8") as f:
+        f.write("print('builder output')\n")
+    with open(stale_file, "w", encoding="utf-8") as f:
+        f.write("stale\n")
+    with open(cache_file, "w", encoding="utf-8") as f:
+        f.write("cache\n")
+
+    AgentManager._sync_builder_target_to_agent_workspace(
+        source_target_path=source,
+        destination_target_path=destination,
+    )
+
+    assert os.path.exists(synced_file)
+    assert not os.path.exists(stale_file)
+    assert os.path.exists(cache_file)
+
+
 def test_workflow_halts_on_failure_no_retries(setup_teardown):
     """
     Verify that if an agent fails (e.g. Builder), the workflow HALTS immediately.

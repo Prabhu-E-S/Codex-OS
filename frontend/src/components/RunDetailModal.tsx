@@ -556,7 +556,7 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
               </div>
 
               {/* Boundary Controls if active or paused */}
-              {orchState && !['COMPLETED', 'FAILED', 'CANCELLED'].includes(orchState.state) && (
+              {orchState && ['ARCHITECTING', 'BUILDING', 'TESTING', 'BREAKING', 'SECURITY_SCANNING', 'DECIDING', 'ITERATING', 'PAUSED'].includes(orchState.state) && (
                 <div style={{ display: 'flex', gap: '6px' }}>
                   {orchState.state === 'PAUSED' ? (
                     <button
@@ -638,7 +638,7 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
             )}
 
             {/* Autonomous execution starter controls */}
-            {!isActive && (!orchState || ['COMPLETED', 'FAILED', 'CANCELLED'].includes(orchState.state)) && (
+            {!isActive && (!orchState || ['PENDING', 'INITIALIZED', 'COMPLETED', 'FAILED', 'CANCELLED'].includes(orchState.state)) && (
               <div
                 style={{
                   display: 'flex',

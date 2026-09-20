@@ -6,6 +6,7 @@ import {
   Award,
   AlertTriangle,
   Eye,
+  Sparkles,
 } from 'lucide-react';
 import { ControlRoomRun, ControlRoomOrchestration, ControlRoomEvaluation } from '../../api/types';
 import { api } from '../../api/client';
@@ -30,15 +31,31 @@ export const RunControls: React.FC<RunControlsProps> = ({
   const [resuming, setResuming] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [evaluating, setEvaluating] = useState(false);
+  const [maxIterations, setMaxIterations] = useState<number>(run.max_iterations || 3);
+  const [startingAutonomous, setStartingAutonomous] = useState(false);
 
   const status = run.status;
   const orchState = orchestration?.state;
 
-  const isRunning = status === 'RUNNING' || status === 'STARTING' || (orchestration?.is_active ?? false);
+  const isRunning = status === 'RUNNING' || status === 'STARTING' || (orchestration?.is_active ?? false) || ['ARCHITECTING', 'BUILDING', 'TESTING', 'BREAKING', 'SECURITY_SCANNING', 'DECIDING', 'ITERATING'].includes(orchState || '');
   const isPaused = orchState === 'PAUSED' || status === 'PAUSED';
   const isCompleted = status === 'COMPLETED' || orchState === 'COMPLETED';
   const isFailed = status === 'FAILED' || orchState === 'FAILED';
   const isCancelled = status === 'CANCELLED' || orchState === 'CANCELLED';
+  const isPending = !isRunning && !isPaused && !isCompleted && !isFailed && !isCancelled;
+
+  // Start Autonomous handler
+  const handleStartAutonomous = async () => {
+    setStartingAutonomous(true);
+    try {
+      await api.startAutonomousRun(run.id, maxIterations);
+      onRunUpdated();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to start autonomous run');
+    } finally {
+      setStartingAutonomous(false);
+    }
+  };
 
   // Pause handler
   const handlePause = async () => {
@@ -104,6 +121,43 @@ export const RunControls: React.FC<RunControlsProps> = ({
       </div>
 
       <div className="cr-controls-buttons">
+        {/* Pending / Not Started controls */}
+        {isPending && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 500 }}>Max Iterations:</span>
+              <input
+                type="number"
+                min={1}
+                max={10}
+                value={maxIterations}
+                onChange={(e) => setMaxIterations(Math.max(1, Math.min(10, parseInt(e.target.value) || 1)))}
+                style={{
+                  width: '50px',
+                  padding: '2px 6px',
+                  fontSize: '12px',
+                  borderRadius: '4px',
+                  border: '1px solid #CBD5E1',
+                  textAlign: 'center',
+                  backgroundColor: '#FFFFFF',
+                  color: '#0F172A',
+                }}
+              />
+              <span style={{ fontSize: '11px', color: '#94A3B8' }}>(1–10 loops)</span>
+            </div>
+
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={handleStartAutonomous}
+              disabled={startingAutonomous}
+              title="Start autonomous multi-iteration agent workflow"
+            >
+              <Sparkles size={13} />
+              <span>{startingAutonomous ? 'Starting...' : 'Run Autonomously'}</span>
+            </button>
+          </div>
+        )}
+
         {/* Active running controls */}
         {isRunning && !isPaused && (
           <>

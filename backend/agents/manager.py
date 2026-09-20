@@ -1,5 +1,7 @@
 import logging
+import os
 import shutil
+import stat
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
@@ -182,6 +184,59 @@ class AgentManager:
             "node_modules",
         }
 
+        def make_writable_recursively(path: Path) -> None:
+            """Recursively ensure files and directories have write permissions on Windows/POSIX."""
+            try:
+                os.chmod(path, stat.S_IWRITE | stat.S_IREAD | stat.S_IEXEC)
+                if path.is_dir():
+                    for root, dirs, files in os.walk(path):
+                        for d in dirs:
+                            try:
+                                os.chmod(os.path.join(root, d), stat.S_IWRITE | stat.S_IREAD | stat.S_IEXEC)
+                            except Exception:
+                                pass
+                        for f in files:
+                            try:
+                                os.chmod(os.path.join(root, f), stat.S_IWRITE | stat.S_IREAD)
+                            except Exception:
+                                pass
+            except Exception:
+                pass
+
+        def make_writable_and_retry(func, failing_path, exc_arg):
+            actual_exc = exc_arg[1] if isinstance(exc_arg, tuple) else exc_arg
+            try:
+                f_path = Path(failing_path)
+                make_writable_recursively(f_path)
+                func(failing_path)
+            except Exception as e:
+                logger.warning(f"Could not remove '{failing_path}' during workspace sync: {actual_exc} (Retry: {e})")
+
+        def remove_path(path: Path) -> None:
+            if not path.exists() and not path.is_symlink():
+                return
+            make_writable_recursively(path)
+            if path.is_dir():
+                try:
+                    shutil.rmtree(path, onexc=make_writable_and_retry)
+                except TypeError:
+                    shutil.rmtree(path, onerror=make_writable_and_retry)
+                except Exception as e:
+                    logger.warning(f"Failed to remove directory '{path}': {e}")
+            else:
+                try:
+                    path.unlink(missing_ok=True)
+                except Exception as e:
+                    logger.warning(f"Failed to remove file '{path}': {e}")
+
+        def clear_directory_contents(directory: Path) -> None:
+            if not directory.exists() or not directory.is_dir():
+                return
+            for child in directory.iterdir():
+                if child.name in ignored_names:
+                    continue
+                remove_path(child)
+
         destination.mkdir(parents=True, exist_ok=True)
         for item in source.iterdir():
             if item.name in ignored_names:
@@ -189,14 +244,26 @@ class AgentManager:
             target = destination / item.name
             if item.is_dir():
                 if target.exists():
-                    shutil.rmtree(target)
-                shutil.copytree(
-                    item,
-                    target,
-                    ignore=shutil.ignore_patterns(*ignored_names),
-                )
+                    if target.is_dir():
+                        clear_directory_contents(target)
+                    else:
+                        remove_path(target)
+                try:
+                    shutil.copytree(
+                        item,
+                        target,
+                        ignore=shutil.ignore_patterns(*ignored_names),
+                        dirs_exist_ok=True,
+                    )
+                except Exception as e:
+                    logger.warning(f"Warning during copytree for '{item}' to '{target}': {e}")
             else:
-                shutil.copy2(item, target)
+                if target.is_dir():
+                    remove_path(target)
+                try:
+                    shutil.copy2(item, target)
+                except Exception as e:
+                    logger.warning(f"Warning during copy2 for '{item}' to '{target}': {e}")
 
     @classmethod
     def start_workflow(cls, run_id: int, db: Session) -> EngineeringRun:

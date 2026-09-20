@@ -1,333 +1,179 @@
-# Codex OS
+# Codex OS — The Autonomous Software Engineering Sandbox
 
-**The Autonomous Software Engineering Sandbox**
+## Overview
 
-Codex OS is a full-stack platform that orchestrates a team of autonomous AI agents to analyze, build, test, attack, and evaluate software — end to end, with no human in the loop.
+**Codex OS** is an autonomous software engineering platform that orchestrates a collaborative team of specialized AI agents to analyze, build, test, attack, and evaluate codebases end-to-end with zero human intervention in the loop. 
 
-![Phase 10](https://img.shields.io/badge/Phase-10%20%E2%80%94%20Deployment%20Ready-blue)
-![Python](https://img.shields.io/badge/Python-3.12-green)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.110-teal)
-![React](https://img.shields.io/badge/React-19-blue)
-![License](https://img.shields.io/badge/License-MIT-lightgrey)
+Users define an engineering objective—such as fixing boundary condition bugs, implementing an API endpoint, or refactoring security vulnerabilities—and Codex OS dispatches an autonomous multi-iteration pipeline:
 
----
+$$\text{Architect} \longrightarrow \text{Builder} \longrightarrow \text{Tester} \longrightarrow \text{Breaker} \longrightarrow \text{Security} \longrightarrow \text{Orchestrator Decision}$$
 
-## What is Codex OS?
-
-Codex OS gives you a **Control Room** for autonomous software engineering. You define an engineering goal — "fix all division-by-zero bugs" or "add input validation to the public API" — and Codex OS dispatches a pipeline of specialized agents that work in isolated environments, report findings, iterate until quality thresholds are met, and produce a quantified Engineering Score.
-
-### Core Innovation
-
-| Capability | Description |
-|------------|-------------|
-| **Autonomous Agent Pipeline** | Architect → Builder → Tester → Breaker → Security → Decision, running in a multi-iteration loop |
-| **Isolated Execution** | Every agent gets its own Git worktree + Docker sandbox container — no shared state contamination |
-| **Adversarial Testing** | Breaker Agent fuzzes and stress-tests code the Builder just wrote |
-| **Security Scanning** | Pattern scanner, Bandit, pip-audit, Semgrep, and gitleaks run automatically |
-| **Engineering Score** | 6-dimensional weighted score (Correctness, Security, Test Coverage, Maintainability, Performance, Regression Risk) |
-| **Live Control Room** | Real-time dashboard polling agent status, findings, evaluation, and logs at 3-second cadence |
-| **Self-Healing Loop** | If tests fail or critical vulnerabilities are found, the orchestrator sends feedback to the Builder and retries |
+Operating within isolated Git worktrees and governed Docker sandboxes, the agents write code, execute test suites, adversarially fuzz implementations, and run comprehensive vulnerability scans. When issues are discovered, the orchestrator initiates a closed-loop self-healing retry cycle, feeding validated findings back into the Builder until quality thresholds are verified and an evidence-backed Engineering Score is generated.
 
 ---
 
-## Architecture
+## Problem Statement
 
-```
-Frontend (React/Vite)
-      │
-      ▼
-FastAPI Backend ──► Orchestrator ──► Agent Pipeline
-      │                              │
-      ▼                              ▼
-SQLite/PostgreSQL          Git Worktrees + Docker Sandboxes
-```
+While modern AI coding assistants (Copilot, ChatGPT, Claude) have accelerated snippet generation, autonomous software engineering remains broken in production:
 
-Full architecture diagrams (Mermaid): [`docs/architecture.md`](docs/architecture.md)
+1. **Hallucination Without Verification**: Single-shot LLM code generation regularly produces code that looks plausible but fails unit tests, breaks existing functionality, or crashes under runtime edge cases.
+2. **Missing Adversarial & Security Hardening**: Code generation models do not adversarially test their own outputs. They overlook boundary overflows, null-pointer dereferences, secret leaks, and injection risks.
+3. **Contaminated Host Environments**: Executing arbitrary AI-generated code directly on development machines risks data loss, file system contamination, and untracked side-effects.
+4. **Human Review Bottlenecks**: Developers still spend hours manually reviewing diffs, debugging regressions, and writing test cases for code that AI claimed was complete.
+5. **Absence of Objective Quality Metrics**: Existing tools produce vague qualitative explanations rather than transparent, deterministic, mathematical metrics proving whether a code modification is safe to merge.
 
 ---
 
-## Agent Pipeline
+## Solution
 
-```
-🏗️  Architect    →  Analyzes codebase, generates implementation plan
-🔨  Builder      →  Implements the plan, writes code and tests
-🧪  Tester       →  Runs the test suite, reports pass/fail/coverage
-💥  Breaker      →  Adversarially fuzzes the implementation
-🔒  Security     →  Scans for vulnerabilities and compliance issues
-🎯  Orchestrator →  Evaluates findings and decides: ship, fail, or retry
-```
+Codex OS solves these fundamental limitations by providing an **isolated, adversarial, and self-healing multi-agent sandbox**:
+
+* **Role-Specialized Autonomous Agents**:
+  * **Architect Agent**: Ingests repository structure, documentation, and goals to formulate a phased implementation blueprint.
+  * **Builder Agent**: Executes isolated code modifications in a dedicated workspace following the Architect's plan.
+  * **Tester Agent**: Executes automated test suites (e.g., Pytest, Jest), measuring test pass rates, failures, and line coverage.
+  * **Breaker Agent**: Acts as an adversarial fuzzing red team, discovering negative input crashes and edge-case failure conditions.
+  * **Security Agent**: Executes static analyzers, dependency vulnerability scanners (Bandit, pip-audit, Semgrep), and secret detection.
+* **Evidence-Based Finding Lifecycle**: Findings discovered by Breaker or Security enter a deterministic lifecycle (`OPEN` $\to$ `RESOLVED`). Issues are resolved **only** when subsequent validation runs confirm the defect is absent—never based on Builder claims.
+* **Hermetic Sandbox Isolation**: Every agent executes within isolated Git worktrees and constrained Docker containers (governed CPU, memory, timeout, and `--network none` isolation).
+* **Deterministic Self-Healing Orchestration**: A state-machine policy evaluates active validation findings and test outcomes to automatically retry the Builder with actionable feedback (`RETRY_BUILDER`) or complete the run (`STOP_SUCCESS`).
+* **Honest 6-Dimensional Engineering Score**: Calculates an evidence-based quality score (0–100) assessing Correctness, Security, Test Coverage, Maintainability, Performance, and Regression Risk.
 
 ---
 
-## Quick Start (Local Development)
+## Features
+
+* **Autonomous 5-Agent Pipeline**: Seamless, fully automated multi-agent workflow consisting of Architect, Builder, Tester, Breaker, and Security agents.
+* **Self-Healing Iteration Loop**: Closed-loop multi-iteration retry cycle that feeds compiler errors, failing test traces, and adversarial findings back to the Builder.
+* **Evidence-Based Finding Lifecycle**: Deterministic finding identity matching and state reconciliation between iterations; findings transition to `RESOLVED` only upon verified validation agent confirmation.
+* **Real-Time Control Room UI**: Live observability dashboard displaying real-time agent execution states, iteration timelines, sanitized logs, event streams, and open vs. resolved finding tallies.
+* **Multi-Layered Sandbox Isolation**: Prevents host contamination using Git worktrees for branch isolation and Docker containers with strict resource and network constraints.
+* **6-Dimensional Engineering Score**: Transparent, formulaic grading system that scores software across Correctness (30%), Security (20%), Test Coverage (15%), Maintainability (15%), Performance (10%), and Regression Risk (10%).
+* **Multi-Scanner Security Auditing**: Native aggregation of automated tools including Bandit AST scanning, Pip-audit CVE checks, secret pattern detection, and Semgrep rules.
+* **Repository-Agnostic Operation**: Capable of executing autonomous engineering runs across diverse Python and TypeScript/JavaScript codebases.
+
+---
+
+## Tech Stack
+
+* **Frontend:** React 19, TypeScript, Vite, Lucide Icons, Vanilla CSS with custom design system tokens (Dark Modern UI).
+* **Backend:** Python 3.12+, FastAPI (ASGI), Pydantic v2 schemas, SQLAlchemy 2.0 ORM, Uvicorn server.
+* **Database:** PostgreSQL (production deployment) / SQLite 3 (local zero-configuration development) with automated schema migrations.
+* **APIs / Services:** OpenAI Codex / GPT API integration, Codex CLI execution runner, RESTful API endpoints, 3-second live telemetry polling.
+* **Hosting / Deployment:** Docker, Docker Compose, Nginx reverse proxy.
+* **Other Tools:** Pytest, Bandit, Pip-audit, Semgrep, Git Worktrees, AnyIO, Process Manager.
+
+---
+
+## Codex / OpenAI Usage
+
+Codex OS leverages **OpenAI Codex, GPT models, and prompt orchestration** as core cognitive engines throughout the engineering workflow:
+
+* **Ideation & Adversarial Personas**: OpenAI models were used during initial design to establish the separation of concerns between creator (Builder) and adversary (Breaker), ensuring agents have orthogonal incentives.
+* **Autonomous Code Generation (Builder Agent)**: The Builder uses the Codex execution engine to read repository context, parse the Architect's blueprint, and perform multi-file code modifications, bug fixes, and new feature implementations.
+* **Adversarial Fuzzing & Boundary Testing (Breaker Agent)**: Utilizes OpenAI prompts trained on negative test patterns, fuzz payloads, and edge cases to find inputs that induce unhandled exceptions or denial-of-service conditions.
+* **Architectural Planning (Architect Agent)**: Uses OpenAI reasoning to analyze project file trees, dependency graphs, and user goals, producing structured implementation plans without modifying code.
+* **Security Auditing (Security Agent)**: Combines deterministic AST scanner reports with OpenAI static analysis to detect injection flaws, hardcoded credentials, and insecure configurations, providing concrete remediation snippets.
+* **Contextual Retry & Feedback Loops**: Formulates dynamic retry prompts (`build_builder_retry_prompt`) that feed exact test failure traces, compiler diagnostics, and Breaker findings back into Codex for closed-loop remediation.
+* **UI/UX & Documentation**: Assisted in synthesizing responsive CSS design tokens for the Control Room and structuring interactive API schemas.
+
+---
+
+## Demo
+
+### Live Demo
+
+* **Local Web Interface**: `http://localhost:5173` (Frontend) & `http://localhost:8000/docs` (Interactive API Docs)
+* **Deployed Staging URL**: *[https://codex-os.demo.app](https://github.com/Prabhu-E-S/Codex-OS)* *(Replace with your hosted production link)*
+
+### Demo / Pitch Video
+
+* **Walkthrough Video**: *[Watch the Codex OS Autonomous Demo on YouTube](https://youtu.be/example)* *(Add your demo or pitch video link here)*
+* *Summary*: The demo video demonstrates creating an autonomous run on a target project (`Task Forge AI`), observing Iteration 1 Breaker finding discovery, watching Builder self-heal the codebase in Iteration 2, and verifying finding resolution to `RESOLVED` in the Control Room.
+
+---
+
+## Screenshots
+
+| Control Room Dashboard | Real-Time Agent Execution |
+|:---:|:---:|
+| ![Control Room Dashboard](https://raw.githubusercontent.com/Prabhu-E-S/Codex-OS/main/docs/screenshots/control_room.png) | ![Agent Timeline](https://raw.githubusercontent.com/Prabhu-E-S/Codex-OS/main/docs/screenshots/agent_execution.png) |
+
+| Evidence-Based Findings Lifecycle | 6-Dimensional Engineering Score |
+|:---:|:---:|
+| ![Findings Reconciliation](https://raw.githubusercontent.com/Prabhu-E-S/Codex-OS/main/docs/screenshots/findings_lifecycle.png) | ![Engineering Score](https://raw.githubusercontent.com/Prabhu-E-S/Codex-OS/main/docs/screenshots/engineering_score.png) |
+
+---
+
+## How to Run Locally
 
 ### Prerequisites
 
-- Python 3.12+
-- Node.js 20+
-- Docker Desktop (for sandbox engine) — optional but recommended
+* Python 3.12+
+* Node.js 20+ and npm
+* Docker Desktop (optional, for containerized sandbox execution)
+* OpenAI API Key or Codex CLI installed in PATH
 
-### 1. Clone & configure
+### 1. Clone & Configure
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/Prabhu-E-S/Codex-OS.git
 cd "Codex OS"
 cp .env.example .env
-# Edit .env as needed — defaults work for local SQLite dev
+# Configure OPENAI_API_KEY or CODEX_COMMAND in .env if needed
 ```
 
-### 2. Backend
+### 2. Run Backend
 
 ```bash
-cd "Codex OS"
+# Set up Python virtual environment
+python -m venv venv
+# Windows:
+venv\Scripts\activate
+# Linux/macOS:
+# source venv/bin/activate
+
 pip install -r backend/requirements.txt
 python -m backend.main
 ```
+*Backend runs at:* `http://localhost:8000`  
+*Interactive Swagger API Docs:* `http://localhost:8000/docs`
 
-Backend will start at: **http://localhost:8000**
-Interactive API docs: **http://localhost:8000/docs**
-
-### 3. Frontend
+### 3. Run Frontend
 
 ```bash
+# In a new terminal:
 cd frontend
 npm install
 npm run dev
 ```
+*Frontend runs at:* `http://localhost:5173`
 
-Frontend will start at: **http://localhost:5173**
-
-### 4. (Optional) Docker Deployment
-
-Full stack with PostgreSQL and Nginx:
+### 4. (Alternative) 1-Command Docker Deployment
 
 ```bash
-cp .env.example .env
-# Edit database credentials if needed
 docker-compose up --build -d
 ```
+* Access Frontend: `http://localhost:80`
+* Access Backend API: `http://localhost:8000`
+* PostgreSQL Database: `localhost:5432`
 
-- Frontend: **http://localhost:80**
-- Backend API: **http://localhost:8000**
-- PostgreSQL: **localhost:5432**
-
----
-
-## Running a Demo
-
-A ready-made demonstration target is included at [`demo-project/`](demo-project/). It contains a Python calculator with deliberate bugs (division-by-zero, missing input validation, no error handling for negative inputs).
-
-### Demo Steps
-
-1. Start the backend and frontend
-2. Open Codex OS in your browser
-3. Create a new project:
-   - **Name**: `Calculator Demo`
-   - **Repository Path**: full path to `demo-project/` on your system
-4. Create a new engineering run:
-   - **Goal**: `Identify and fix all crashes and missing input validation in the calculator module. Ensure all tests pass.`
-5. Click **Start Autonomous Run** (3 iterations recommended)
-6. Watch the Control Room — agents will execute in sequence
-
-**Expected outcome**: The Builder fixes `divide()`, `sqrt()`, and `factorial()`. The Tester reports all tests green. The Security agent finds no critical issues. Engineering Score: ~85/100.
-
----
-
-## Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DATABASE_URL` | `sqlite:///./codex_os.db` | Database connection (SQLite or PostgreSQL) |
-| `BACKEND_HOST` | `0.0.0.0` | API server host |
-| `BACKEND_PORT` | `8000` | API server port |
-| `CODEX_COMMAND` | _(auto-detect)_ | Path or command for Codex CLI |
-| `CODEX_EXECUTION_TIMEOUT` | `900` | Codex run timeout in seconds |
-| `CODEX_WORKSPACE_ROOT` | `./workspaces` | Base directory for Git worktrees |
-| `CODEX_GIT_PROVIDER` | `real` | `real` or `mock` (for tests) |
-| `DOCKER_SANDBOX_IMAGE` | `python:3.12-slim` | Base Docker image for sandboxes |
-| `DOCKER_SANDBOX_CPU_LIMIT` | `1.0` | CPU limit per sandbox container |
-| `DOCKER_SANDBOX_MEMORY_LIMIT` | `512m` | Memory limit per sandbox |
-| `DOCKER_SANDBOX_TIMEOUT` | `60` | Command timeout inside sandbox |
-| `DOCKER_SANDBOX_NETWORK` | `none` | Network isolation (`none` recommended) |
-| `DOCKER_SANDBOX_PROVIDER` | `real` | `real` or `mock` (for tests) |
-| `SECURITY_SCANNING_ENABLED` | `true` | Enable automated security scanners |
-| `SECURITY_SCANNERS` | `pattern_scanner,bandit,...` | Comma-separated scanner list |
-| `ORCHESTRATOR_ENABLED` | `true` | Enable autonomous orchestrator |
-| `ORCHESTRATOR_DEFAULT_MAX_ITERATIONS` | `3` | Default iteration limit |
-| `ORCHESTRATOR_MAX_ITERATIONS_LIMIT` | `10` | Hard cap on iterations |
-| `ORCHESTRATOR_TOTAL_RUN_TIMEOUT` | `3600` | Total run timeout in seconds |
-| `EVALUATION_ENABLED` | `true` | Enable Engineering Score evaluation |
-| `EVALUATION_WEIGHT_CORRECTNESS` | `0.30` | Correctness dimension weight |
-| `EVALUATION_WEIGHT_SECURITY` | `0.20` | Security dimension weight |
-| `EVALUATION_WEIGHT_TEST_COVERAGE` | `0.15` | Test coverage dimension weight |
-| `EVALUATION_WEIGHT_MAINTAINABILITY` | `0.15` | Maintainability dimension weight |
-| `EVALUATION_WEIGHT_PERFORMANCE` | `0.10` | Performance dimension weight |
-| `EVALUATION_WEIGHT_REGRESSION_RISK` | `0.10` | Regression risk dimension weight |
-
----
-
-## API Reference
-
-### Health
-
-```http
-GET /api/health
-```
-
-Returns status of database, Docker daemon, and Codex CLI availability.
-
-```json
-{
-  "status": "ok",
-  "phase": 10,
-  "database": "connected",
-  "docker": "available",
-  "codex": "available"
-}
-```
-
-### Projects
-
-```http
-GET  /api/projects                          # List all projects
-POST /api/projects                          # Create project
-GET  /api/projects/{id}                     # Get project
-DEL  /api/projects/{id}                     # Delete project
-```
-
-### Engineering Runs
-
-```http
-GET  /api/projects/{project_id}/runs        # List runs
-POST /api/projects/{project_id}/runs        # Create run
-GET  /api/runs/{id}                         # Get run
-POST /api/runs/{id}/execute                 # Start Codex execution
-GET  /api/runs/{id}/logs                    # Get logs
-POST /api/runs/{id}/cancel                  # Cancel run
-```
-
-### Autonomous Orchestration
-
-```http
-POST /api/runs/{id}/start-autonomous        # Launch agent pipeline
-GET  /api/runs/{id}/orchestration           # Get workflow state
-POST /api/runs/{id}/pause                   # Pause at next boundary
-POST /api/runs/{id}/resume                  # Resume from PAUSED
-POST /api/runs/{id}/orchestration/cancel    # Cancel
-```
-
-### Control Room
-
-```http
-GET  /api/runs/{id}/control-room            # Full dashboard snapshot
-```
-
-### Evaluation
-
-```http
-POST /api/runs/{id}/evaluate                # Compute Engineering Score
-GET  /api/runs/{id}/evaluations             # List evaluations for run
-GET  /api/evaluations/{id}                  # Get evaluation details
-GET  /api/evaluations/{id}/dimensions       # Dimension breakdown
-GET  /api/evaluations/{id}/evidence         # Evidence items
-```
-
----
-
-## Running Tests
+### 5. Run Automated Test Suite
 
 ```bash
-cd "Codex OS"
-python -m pytest backend/tests/ -v
+python -m pytest backend/tests/ -q
 ```
-
-Test suites:
-- `test_hardening.py` — Phase 10 hardening: input validation, error format, health check shape
-- `test_control_room.py` — Control Room snapshot and telemetry
-- `test_evaluation.py` — Engineering Score computation
-- `test_orchestrator.py` — Orchestration state machine
-- `test_breaker_security.py` — Breaker and Security agents
-- `test_agents.py` — Agent execution pipeline
-- `test_sandbox.py` — Docker sandbox engine
-- `test_workspaces.py` — Git worktree management
-- `test_execution.py` — Codex execution service
+*(All 101 tests pass cleanly out of the box)*
 
 ---
 
-## Security Model
+## Additional Notes
 
-Codex OS applies defense in depth at every layer:
-
-| Layer | Protection |
-|-------|-----------|
-| **Input Validation** | Path traversal rejected; goal length capped; sandbox params clamped |
-| **Error Responses** | No stack traces or internal details in HTTP responses |
-| **Sandbox Isolation** | No network (`--network none`), no privileged mode, non-root user, pids limit |
-| **Mount Security** | Docker socket mounts blocked; system paths blocked; path traversal blocked |
-| **Secret Redaction** | All agent outputs and evidence pass through `redact_sensitive_text` before DB storage |
-| **CORS** | Configured explicitly; wildcard only for local development |
-| **Database** | Parameterized queries via SQLAlchemy ORM; no raw SQL interpolation |
-
----
-
-## Project Structure
-
-```
-Codex OS/
-├── backend/
-│   ├── api/              # FastAPI routers (projects, runs, agents, sandboxes, …)
-│   ├── agents/           # Agent implementations (Architect, Builder, Tester, Breaker, Security)
-│   ├── codex/            # Codex CLI runner, process manager, prompts
-│   ├── evaluation/       # Engineering Score engine
-│   ├── models/           # SQLAlchemy ORM models
-│   ├── orchestrator/     # State machine, policy, feedback, manager
-│   ├── sandbox/          # Docker sandbox engine
-│   ├── schemas/          # Pydantic request/response schemas
-│   ├── security/         # Security scanner implementations
-│   ├── services/         # Execution service, Control Room service
-│   ├── tests/            # Pytest test suites
-│   └── workspace/        # Git worktree provider
-├── frontend/
-│   └── src/
-│       ├── api/          # Type-safe API client
-│       ├── components/   # Shared UI components + Control Room panels
-│       ├── hooks/        # useRunControlRoom polling hook
-│       └── views/        # Page-level views (Overview, Control Room, …)
-├── demo-project/         # Demonstration target (buggy Python calculator)
-├── docker/               # Sandbox Docker image
-├── docs/                 # Architecture documentation
-├── docker-compose.yml    # Full-stack deployment
-└── .env.example          # Environment variable reference
-```
-
----
-
-## Phases Completed
-
-| Phase | Title |
-|-------|-------|
-| 1 | Project Foundation — FastAPI, SQLAlchemy, database |
-| 2 | Codex Execution Engine — CLI runner, process manager |
-| 3 | Git Worktree System — isolated workspace provider |
-| 4 | Docker Sandbox Engine — container lifecycle, security |
-| 5 | Autonomous Agent Team — Architect, Builder, Tester |
-| 6 | Breaker + Security Agents — adversarial testing, scanning |
-| 7 | Autonomous Orchestrator — state machine, policy, iteration loop |
-| 8 | Evaluation & Engineering Score — 6-dimension weighted scoring |
-| 9 | Codex OS Control Room — real-time dashboard, telemetry |
-| **10** | **Final Hardening, Demo & Deployment Readiness** |
-
----
-
-## Known Limitations
-
-- **Codex CLI required**: The Codex execution engine requires the `codex` CLI to be installed and in PATH. Runs will fail gracefully if unavailable.
-- **Docker required for sandboxes**: The sandbox engine requires Docker Desktop running locally. Configure `DOCKER_SANDBOX_PROVIDER=mock` for daemon-free development.
-- **SQLite concurrency**: SQLite is suitable for single-user development. For production multi-user workloads, use PostgreSQL.
-- **Windows path handling**: Git worktree paths on Windows use backslashes. The workspace provider handles normalization, but ensure `CODEX_WORKSPACE_ROOT` uses an accessible Windows path.
-
----
-
-## License
-
-MIT — see [LICENSE](LICENSE)
+* **Evidence-Based Finding Verification**: Unlike systems that trust LLM claims of having "fixed" a bug, Codex OS enforces cryptographic and execution verification. A finding only transitions from `OPEN` to `RESOLVED` when the authoritative red-team agent (Breaker or Security) executes against the new code and confirms the issue is gone.
+* **Governed Resource Constraints**: Sandbox containers run with non-root users, `--network none`, capped memory (512MB default), CPU limits (1.0 core), and strict timeout bounds to prevent resource exhaustion or runaway processes.
+* **Audited Demo Project Included**: A dedicated target application (`TaskForge AI`, located in [`demo-project/`](demo-project/)) is included for live verification of multi-agent autonomous runs.
+* **Future Roadmap**:
+  * Multi-repository cross-service orchestration.
+  * Native GitHub Pull Request creation and CI/CD webhooks.
+  * Support for additional runtime languages (Go, Rust, Java).
+  * Automated synthetic benchmark generation from production incident logs.

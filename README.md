@@ -82,9 +82,9 @@ Codex OS leverages **OpenAI Codex, GPT models, and prompt orchestration** as cor
 ## Demo
 
 ### Live Demo
-
+After setting up
 * **Local Web Interface**: `http://localhost:5173` (Frontend) & `http://localhost:8000/docs` (Interactive API Docs)
-* **Deployed Staging URL**: *[https://codex-os.demo.app](https://github.com/Prabhu-E-S/Codex-OS)* *(Replace with your hosted production link)*
+
 
 ### Demo / Pitch Video
 
@@ -95,13 +95,14 @@ Codex OS leverages **OpenAI Codex, GPT models, and prompt orchestration** as cor
 
 ## Screenshots
 
-| Control Room Dashboard | Real-Time Agent Execution |
-|:---:|:---:|
-| ![Control Room Dashboard](https://raw.githubusercontent.com/Prabhu-E-S/Codex-OS/main/docs/screenshots/control_room.png) | ![Agent Timeline](https://raw.githubusercontent.com/Prabhu-E-S/Codex-OS/main/docs/screenshots/agent_execution.png) |
+Project Overiew
+<img width="1918" height="862" alt="image" src="https://github.com/user-attachments/assets/57ee190e-334c-41ba-97fc-88d9e4e2be14" />
 
-| Evidence-Based Findings Lifecycle | 6-Dimensional Engineering Score |
-|:---:|:---:|
-| ![Findings Reconciliation](https://raw.githubusercontent.com/Prabhu-E-S/Codex-OS/main/docs/screenshots/findings_lifecycle.png) | ![Engineering Score](https://raw.githubusercontent.com/Prabhu-E-S/Codex-OS/main/docs/screenshots/engineering_score.png) |
+Control Room
+<img width="1897" height="863" alt="image" src="https://github.com/user-attachments/assets/e99becfb-3069-4762-926b-d185dd5f2015" />
+
+Workspace and Sandboxes
+<img width="1917" height="832" alt="image" src="https://github.com/user-attachments/assets/e1db4ba9-f6b9-4a81-8df1-58d7a448d982" />
 
 ---
 

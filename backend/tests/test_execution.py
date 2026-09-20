@@ -55,6 +55,54 @@ def test_codex_availability_detection():
     assert cmd == "C:\\tools\\codex.cmd"
     assert err is None
 
+def test_codex_available_as_normal_executable():
+    from backend.config import settings
+    settings.CODEX_COMMAND = "codex"
+
+    with patch("backend.codex.runner.sys.platform", "linux"):
+        with patch("backend.codex.runner.shutil.which", return_value="/usr/local/bin/codex"):
+            is_avail, cmd, err = CodexRunner.is_available()
+
+    assert is_avail is True
+    assert cmd == "/usr/local/bin/codex"
+    assert err is None
+
+def test_windows_cmd_wrapper_resolution_for_codex():
+    with patch("backend.codex.runner.sys.platform", "win32"):
+        with patch("backend.codex.runner.shutil.which", return_value=r"C:\Users\Example\AppData\Roaming\npm\codex.CMD"):
+            cmd_args = CodexRunner._build_command_args("codex")
+
+    assert cmd_args == [
+        r"C:\Users\Example\AppData\Roaming\npm\codex.CMD",
+        "exec",
+        "-",
+    ]
+
+def test_codex_exec_stdin_command_construction():
+    with patch("backend.codex.runner.sys.platform", "linux"):
+        with patch("backend.codex.runner.shutil.which", return_value="/usr/local/bin/codex"):
+            cmd_args = CodexRunner._build_command_args("codex")
+
+    assert cmd_args == ["/usr/local/bin/codex", "exec", "-"]
+
+def test_codex_spawn_failure_handling():
+    temp_repo = tempfile.mkdtemp()
+    unavailable_spawn = FileNotFoundError("[WinError 2] The system cannot find the file specified")
+
+    with patch("backend.codex.runner.CodexRunner.is_available", return_value=(True, "codex", None)):
+        with patch("backend.codex.runner.subprocess.Popen", side_effect=unavailable_spawn):
+            result = CodexRunner.execute(
+                run_id=999001,
+                goal="Verify spawn failure handling",
+                repository_path=temp_repo,
+                project_name="SpawnFailureProject",
+            )
+
+    assert result.status == RunStatus.FAILED
+    assert result.exit_code == -1
+    assert "Failed to spawn Codex process" in result.error_message
+    assert "WinError 2" in result.stderr
+
 def test_codex_unavailable_flow():
     # Setup test project and run
     from backend.config import settings

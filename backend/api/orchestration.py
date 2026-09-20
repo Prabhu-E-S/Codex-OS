@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
+from backend.models.run import EngineeringRun
 from backend.models.orchestration import OrchestrationState
 from backend.orchestrator.manager import OrchestratorManager
 from backend.schemas.orchestration import StartAutonomousRunRequest, OrchestrationResponse
@@ -37,15 +38,17 @@ def start_autonomous_run(
 def get_orchestration_status(run_id: int, db: Session = Depends(get_db)):
     """
     Retrieve current workflow state, iteration counter, latest decision, and event log.
+    Validates run existence; returns 404 only when the run does not exist.
     """
     try:
-        orch_state = OrchestratorManager.get_orchestration_state(run_id=run_id, db=db)
-        if not orch_state:
+        run = db.query(EngineeringRun).filter(EngineeringRun.id == run_id).first()
+        if not run:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"No orchestration record found for run {run_id}",
+                detail=f"Engineering run with ID {run_id} not found",
             )
-        return OrchestrationResponse.from_orm_model(orch_state)
+        orch_state = run.orchestration_state or OrchestratorManager.get_orchestration_state(run_id=run.id, db=db)
+        return OrchestrationResponse.from_run(run, orch_state)
     except HTTPException:
         raise
     except Exception as e:

@@ -102,7 +102,9 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
       setAgents(agentList);
       setFindings(findingsList);
       setFindingsSummary(summaryData);
-      setOrchState(orchData);
+      if (orchData !== null) {
+        setOrchState(orchData);
+      }
       setEvaluations(evalsData);
       onRunUpdated(updatedRun);
     } catch (err) {

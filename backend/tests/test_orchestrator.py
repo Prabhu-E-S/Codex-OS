@@ -689,3 +689,215 @@ def test_orchestrator_rest_api_flow(setup_teardown):
         cancel_resp = client.post(f"/api/runs/{run.id}/orchestration/cancel")
         assert cancel_resp.status_code == 200
         assert cancel_resp.json()["state"] == "CANCELLED"
+
+
+def test_get_orchestration_valid_run_without_orchestration_state(setup_teardown):
+    """
+    Regression Test:
+    Verify GET /api/runs/{id}/orchestration succeeds for a valid run that does NOT
+    have an explicit OrchestrationState record in the DB (e.g. Run 381 pattern).
+    Ensures:
+    1. Returns 200 OK
+    2. Does NOT create duplicate records in DB
+    3. Does NOT modify the run state
+    4. Accurately reflects run's stored status and iteration info
+    """
+    temp_dir = setup_teardown
+    db = SessionLocal()
+
+    proj = Project(name="ValidRunProj", repository_path=temp_dir, status="ACTIVE")
+    db.add(proj)
+    db.commit()
+    db.refresh(proj)
+
+    run = EngineeringRun(
+        project_id=proj.id,
+        goal="Test direct run orchestration compatibility",
+        status="COMPLETED"
+    )
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+
+    # Confirm no orchestration record exists beforehand
+    orch_count_before = db.query(OrchestrationState).filter(
+        OrchestrationState.engineering_run_id == run.id
+    ).count()
+    assert orch_count_before == 0
+    db.close()
+
+    # GET /api/runs/{run_id}/orchestration
+    resp = client.get(f"/api/runs/{run.id}/orchestration")
+    assert resp.status_code == 200
+    data = resp.json()
+
+    # Verify fields
+    assert data["id"] == run.id
+    assert data["engineering_run_id"] == run.id
+    assert data["state"] == "COMPLETED"
+    assert data["current_agent"] is None
+    assert data["iteration"] == 1
+    assert data["max_iterations"] == 1
+    assert data["last_decision"] is None
+    assert data["last_decision_reason"] is None
+    assert data["pause_requested"] is False
+    assert data["cancel_requested"] is False
+    assert data["failure_reason"] is None
+    assert data["events"] == []
+    assert data["created_at"] is not None
+    assert data["updated_at"] is not None
+
+    # Verify no DB records were created as a side effect
+    db2 = SessionLocal()
+    orch_count_after = db2.query(OrchestrationState).filter(
+        OrchestrationState.engineering_run_id == run.id
+    ).count()
+    assert orch_count_after == 0
+
+    # Verify run status was not mutated
+    fresh_run = db2.query(EngineeringRun).filter(EngineeringRun.id == run.id).first()
+    assert fresh_run.status == "COMPLETED"
+    db2.close()
+
+
+def test_get_orchestration_nonexistent_run_404():
+    """
+    Regression Test:
+    Verify GET /api/runs/{id}/orchestration returns 404 ONLY when the requested
+    run genuinely does not exist.
+    """
+    resp = client.get("/api/runs/999999/orchestration")
+    assert resp.status_code == 404
+    assert "not found" in resp.json()["detail"].lower()
+
+
+def test_get_orchestration_frontend_schema_contract(setup_teardown):
+    """
+    Regression Test:
+    Verify the response contains every field and correct data types expected by the
+    frontend OrchestrationResponse interface in frontend/src/api/types.ts.
+    """
+    temp_dir = setup_teardown
+    db = SessionLocal()
+
+    proj = Project(name="ContractProj", repository_path=temp_dir, status="ACTIVE")
+    db.add(proj)
+    db.commit()
+    db.refresh(proj)
+
+    run = EngineeringRun(
+        project_id=proj.id,
+        goal="Verify frontend TypeScript contract",
+        status="RUNNING"
+    )
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+    db.close()
+
+    resp = client.get(f"/api/runs/{run.id}/orchestration")
+    assert resp.status_code == 200
+    data = resp.json()
+
+    # Exact field contract expected by frontend OrchestrationResponse
+    expected_fields = {
+        "id": int,
+        "engineering_run_id": int,
+        "state": str,
+        "iteration": int,
+        "max_iterations": int,
+        "pause_requested": bool,
+        "cancel_requested": bool,
+        "events": list,
+        "created_at": str,
+        "updated_at": str,
+    }
+    for field_name, expected_type in expected_fields.items():
+        assert field_name in data, f"Missing expected field '{field_name}'"
+        assert isinstance(data[field_name], expected_type), (
+            f"Field '{field_name}' type mismatch: expected {expected_type}, got {type(data[field_name])}"
+        )
+
+    # Optional fields present in schema
+    assert "current_agent" in data
+    assert "last_decision" in data
+    assert "last_decision_reason" in data
+    assert "failure_reason" in data
+
+
+def test_orchestration_and_control_room_endpoints_coexist(setup_teardown):
+    """
+    Regression Test:
+    Verify that both GET /api/runs/{run_id}/orchestration and
+    GET /api/runs/{run_id}/control-room function correctly side-by-side
+    without interference.
+    """
+    temp_dir = setup_teardown
+    db = SessionLocal()
+
+    proj = Project(name="CoexistProj", repository_path=temp_dir, status="ACTIVE")
+    db.add(proj)
+    db.commit()
+    db.refresh(proj)
+
+    run = EngineeringRun(
+        project_id=proj.id,
+        goal="Verify endpoint coexistence",
+        status="RUNNING"
+    )
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+    db.close()
+
+    # 1. Orchestration endpoint works
+    orch_resp = client.get(f"/api/runs/{run.id}/orchestration")
+    assert orch_resp.status_code == 200
+    orch_data = orch_resp.json()
+    assert orch_data["engineering_run_id"] == run.id
+
+    # 2. Control Room endpoint still works
+    cr_resp = client.get(f"/api/runs/{run.id}/control-room")
+    assert cr_resp.status_code == 200
+    cr_data = cr_resp.json()
+    assert cr_data["run"]["id"] == run.id
+    assert cr_data["run"]["status"] == "RUNNING"
+
+
+def test_active_run_does_not_falsely_complete_on_missing_orchestration(setup_teardown):
+    """
+    Regression Test:
+    Verify that an active run (e.g. status RUNNING) is not falsely marked as COMPLETED
+    when querying orchestration state.
+    """
+    temp_dir = setup_teardown
+    db = SessionLocal()
+
+    proj = Project(name="ActiveRunProj", repository_path=temp_dir, status="ACTIVE")
+    db.add(proj)
+    db.commit()
+    db.refresh(proj)
+
+    run = EngineeringRun(
+        project_id=proj.id,
+        goal="Active run test",
+        status="RUNNING"
+    )
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+    db.close()
+
+    # Query orchestration
+    orch_resp = client.get(f"/api/runs/{run.id}/orchestration")
+    assert orch_resp.status_code == 200
+    orch_data = orch_resp.json()
+    # State should reflect active/building execution, NOT COMPLETED
+    assert orch_data["state"] != "COMPLETED"
+    assert orch_data["state"] in ("BUILDING", "RUNNING")
+
+    # Verify run status in backend remains RUNNING
+    run_resp = client.get(f"/api/runs/{run.id}")
+    assert run_resp.status_code == 200
+    assert run_resp.json()["status"] == "RUNNING"
+

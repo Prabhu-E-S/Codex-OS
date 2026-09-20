@@ -38,14 +38,21 @@ class CodexRunner:
                 tokens = shlex.split(cmd_name, posix=True)
                 base_binary = tokens[0] if tokens else clean_cmd
             except Exception:
-                base_binary = clean_cmd.split()[0] if clean_cmd.split() else clean_cmd
+                tokens = clean_cmd.split()
+                base_binary = tokens[0] if tokens else clean_cmd
 
             base_binary_clean = base_binary.strip("\"'")
             if os.path.isabs(base_binary_clean) and (os.path.isfile(base_binary_clean) or os.path.exists(base_binary_clean)):
                 return True, cmd_name, None
 
-            if shutil.which(base_binary_clean):
-                return True, cmd_name, None
+            resolved_binary = shutil.which(base_binary_clean)
+            if resolved_binary:
+                try:
+                    tokens[0] = resolved_binary
+                    resolved_command = subprocess.list2cmdline(tokens) if sys.platform == "win32" else shlex.join(tokens)
+                except Exception:
+                    resolved_command = resolved_binary
+                return True, resolved_command, None
 
             return False, None, "Codex is not available in the current environment. Configure the Codex execution environment before starting a run."
 
@@ -79,14 +86,18 @@ class CodexRunner:
                 cmd_args = [command_str]
 
         if cmd_args:
+            first_arg = cmd_args[0].strip("\"'")
+            if not os.path.isabs(first_arg):
+                resolved = shutil.which(first_arg)
+                if resolved:
+                    cmd_args[0] = resolved
+
             executable = os.path.basename(cmd_args[0]).lower()
             if executable in ("codex", "codex.exe", "codex.cmd", "codex.ps1") and "exec" not in cmd_args[1:2]:
                 cmd_args = [cmd_args[0], "exec", "-"] + cmd_args[1:]
             if sys.platform == "win32":
                 ext = os.path.splitext(cmd_args[0])[1].lower()
-                if ext in (".cmd", ".bat"):
-                    cmd_args = ["cmd.exe", "/c"] + cmd_args
-                elif ext == ".ps1":
+                if ext == ".ps1":
                     cmd_args = ["powershell.exe", "-ExecutionPolicy", "Bypass", "-File"] + cmd_args
 
         return cmd_args

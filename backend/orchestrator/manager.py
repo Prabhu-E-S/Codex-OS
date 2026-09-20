@@ -403,8 +403,20 @@ class OrchestratorManager:
         agent_exec.completed_at = datetime.now(timezone.utc)
         db.commit()
 
-        # Persist findings if produced
-        if result.metadata and "findings" in result.metadata:
+        # Evidence-based findings reconciliation for validation agents (Breaker & Security)
+        if agent_type in (AgentType.BREAKER, AgentType.SECURITY) and result.status == AgentStatus.COMPLETED:
+            from backend.services.finding_service import FindingService
+            reported = result.metadata.get("findings", []) if result.metadata else []
+            FindingService.reconcile_findings(
+                db=db,
+                run_id=run.id,
+                agent_execution_id=agent_exec.id,
+                agent_type=agent_type,
+                iteration=iteration,
+                reported_findings=reported,
+            )
+        elif result.metadata and "findings" in result.metadata and agent_type in (AgentType.BREAKER, AgentType.SECURITY):
+            # If validation agent failed, persist findings as OPEN without resolving existing ones
             for f_item in result.metadata["findings"]:
                 f_type = f_item.get("type") or ("BREAKER" if agent_type == AgentType.BREAKER else "SECURITY")
                 finding_rec = Finding(
@@ -760,12 +772,12 @@ class OrchestratorManager:
                 orch_state.current_agent = None
                 db.commit()
 
-                # Collect findings from current iteration
+                # Collect active OPEN findings for orchestrator decision
                 curr_breaker_findings = (
                     db.query(Finding)
                     .filter(
                         Finding.engineering_run_id == run_id,
-                        Finding.iteration == curr_iter,
+                        Finding.status == "OPEN",
                         Finding.type == "BREAKER",
                     )
                     .all()
@@ -774,7 +786,7 @@ class OrchestratorManager:
                     db.query(Finding)
                     .filter(
                         Finding.engineering_run_id == run_id,
-                        Finding.iteration == curr_iter,
+                        Finding.status == "OPEN",
                         Finding.type == "SECURITY",
                     )
                     .all()

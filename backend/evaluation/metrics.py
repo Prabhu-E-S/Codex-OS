@@ -321,9 +321,18 @@ class MetricCollector:
 
     @classmethod
     def _aggregate_findings(cls, findings: List[Finding]) -> Dict[str, Any]:
-        """Aggregate Breaker and Security findings across severities."""
+        """
+        Aggregate Breaker and Security findings across severities.
+        Resolved findings are retained for historical audit, but only active
+        unresolved findings contribute to security/regression penalties.
+        """
+        resolved_count = sum(1 for f in findings if (f.status or "OPEN").upper() == "RESOLVED")
+        active_findings = [f for f in findings if (f.status or "OPEN").upper() != "RESOLVED"]
+
         stats = {
             "total_findings": len(findings),
+            "open_findings": len(active_findings),
+            "resolved_findings": resolved_count,
             "critical_findings": 0,
             "high_findings": 0,
             "medium_findings": 0,
@@ -334,7 +343,7 @@ class MetricCollector:
             "breaker_high_critical_count": 0,
             "security_high_critical_count": 0,
         }
-        for f in findings:
+        for f in active_findings:
             sev = (f.severity or "").upper()
             ftype = (f.type or "").upper()
 

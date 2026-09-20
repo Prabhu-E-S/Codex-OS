@@ -15,6 +15,9 @@ export const SystemStatusCard: React.FC<SystemStatusCardProps> = ({
 }) => {
   const isBackendConnected = Boolean(health);
   const isDatabaseConnected = health?.database === 'connected';
+  const isAgentEngineAvailable = health?.codex === 'available';
+  const isSandboxAvailable = health?.docker === 'available';
+  const isEvaluatorAvailable = isBackendConnected && isDatabaseConnected && (health?.phase ?? 0) >= 8;
 
   return (
     <div className="card-panel">
@@ -73,9 +76,15 @@ export const SystemStatusCard: React.FC<SystemStatusCardProps> = ({
             <div className="status-label">
               <span>Agent Engine</span>
             </div>
-            <span className="badge badge-muted">
-              Not configured <span className="phase-tag" style={{ marginLeft: '4px' }}>Phase 2</span>
-            </span>
+            {isAgentEngineAvailable ? (
+              <span className="badge badge-success" title="Codex execution engine is available">
+                <CheckCircle2 size={11} /> Connected
+              </span>
+            ) : (
+              <span className="badge badge-error" title={health?.codex_error || 'Codex execution engine unavailable'}>
+                <AlertCircle size={11} /> {isBackendConnected ? 'Unavailable' : 'Unknown'}
+              </span>
+            )}
           </div>
 
           {/* Sandbox */}
@@ -83,9 +92,15 @@ export const SystemStatusCard: React.FC<SystemStatusCardProps> = ({
             <div className="status-label">
               <span>Sandbox</span>
             </div>
-            <span className="badge badge-muted">
-              Not configured <span className="phase-tag" style={{ marginLeft: '4px' }}>Phase 2</span>
-            </span>
+            {isSandboxAvailable ? (
+              <span className="badge badge-success" title="Docker sandbox engine is available">
+                <CheckCircle2 size={11} /> Connected
+              </span>
+            ) : (
+              <span className="badge badge-error" title={health?.docker_error || 'Docker sandbox engine unavailable'}>
+                <AlertCircle size={11} /> {isBackendConnected ? 'Unavailable' : 'Unknown'}
+              </span>
+            )}
           </div>
 
           {/* Evaluator */}
@@ -93,14 +108,20 @@ export const SystemStatusCard: React.FC<SystemStatusCardProps> = ({
             <div className="status-label">
               <span>Evaluator</span>
             </div>
-            <span className="badge badge-muted">
-              Not configured <span className="phase-tag" style={{ marginLeft: '4px' }}>Phase 2</span>
-            </span>
+            {isEvaluatorAvailable ? (
+              <span className="badge badge-success" title={`Engineering evaluator is available in Phase ${health?.phase}`}>
+                <CheckCircle2 size={11} /> Connected
+              </span>
+            ) : (
+              <span className="badge badge-error" title="Evaluator requires backend and database connectivity">
+                <AlertCircle size={11} /> {isBackendConnected ? 'Unavailable' : 'Unknown'}
+              </span>
+            )}
           </div>
         </div>
 
         <div style={{ marginTop: '14px', fontSize: '11.5px', color: 'var(--text-muted)' }}>
-          Codex OS core foundation active. Autonomous execution subsystems are scheduled for Phase 2.
+          Codex OS core services and autonomous execution subsystems are reporting from backend health checks.
         </div>
       </div>
     </div>

@@ -1890,6 +1890,38 @@ body {
   color: var(--text-muted);
 }
 
+.badge-status {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.03em;
+}
+
+.status-open {
+  background-color: #FEF2F2;
+  color: #DC2626;
+  border: 1px solid #FECACA;
+}
+
+.status-resolved {
+  background-color: #F0FDF4;
+  color: #16A34A;
+  border: 1px solid #BBF7D0;
+}
+
+.badge-resolved-iter {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: #16A34A;
+  background-color: #F0FDF4;
+  border: 1px solid #BBF7D0;
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-family: var(--font-mono);
+}
+
 .cr-finding-title {
   font-size: 13px;
   font-weight: 600;

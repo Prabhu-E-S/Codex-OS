@@ -119,7 +119,6 @@ export interface DockerStatusResponse {
   provider: string;
 }
 
-
 export interface HealthResponse {
   status: 'ok' | 'degraded' | 'error';
   service: string;
@@ -128,6 +127,11 @@ export interface HealthResponse {
   database: 'connected' | 'disconnected';
   database_dialect?: string | null;
   database_error?: string | null;
+  docker?: 'available' | 'unavailable' | string;
+  docker_error?: string | null;
+  codex?: 'available' | 'unavailable' | string;
+  codex_command?: string | null;
+  codex_error?: string | null;
 }
 
 export type AgentType = 'ARCHITECT' | 'BUILDER' | 'TESTER' | 'BREAKER' | 'SECURITY';
@@ -199,6 +203,8 @@ export interface Finding {
   reproduction: string | null;
   remediation: string | null;
   status: 'OPEN' | 'CONFIRMED' | 'RESOLVED' | 'DISMISSED' | string;
+  resolved_iteration?: number | null;
+  resolved_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -207,6 +213,8 @@ export interface FindingsSummary {
   total: number;
   breaker_count: number;
   security_count: number;
+  open_count?: number;
+  resolved_count?: number;
   by_severity: Record<string, number>;
   by_category: Record<string, number>;
 }
@@ -445,6 +453,8 @@ export interface ControlRoomFinding {
   remediation?: string | null;
   status: string;
   iteration: number;
+  resolved_iteration?: number | null;
+  resolved_at?: string | null;
   agent_type?: string | null;
   created_at: string;
 }

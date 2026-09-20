@@ -76,15 +76,25 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
   const [expandedAgentId, setExpandedAgentId] = useState<number | null>(null);
   const [expandedFindingId, setExpandedFindingId] = useState<number | null>(null);
   const [findingTypeFilter, setFindingTypeFilter] = useState<'ALL' | 'BREAKER' | 'SECURITY'>('ALL');
+  const [autoScrollLogs, setAutoScrollLogs] = useState(true);
 
-  const terminalEndRef = useRef<HTMLDivElement>(null);
+  const terminalPanelRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll when logs change during active execution
+  // Keep new output pinned inside the terminal pane without moving the modal.
   useEffect(() => {
-    if (run && (run.status === 'RUNNING' || run.status === 'STARTING')) {
-      terminalEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const panel = terminalPanelRef.current;
+    if (panel && autoScrollLogs && run && (run.status === 'RUNNING' || run.status === 'STARTING')) {
+      panel.scrollTop = panel.scrollHeight;
     }
-  }, [logs, run]);
+  }, [logs, run?.status, autoScrollLogs]);
+
+  const handleTerminalScroll = () => {
+    const panel = terminalPanelRef.current;
+    if (!panel) return;
+
+    const distanceFromBottom = panel.scrollHeight - panel.scrollTop - panel.clientHeight;
+    setAutoScrollLogs(distanceFromBottom < 48);
+  };
 
   // Fetch latest logs, status, agent executions, findings, orchestration state, and evaluations
   const fetchLogsAndStatus = async (runId: number) => {
@@ -115,6 +125,7 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
   // Initial load when modal opens
   useEffect(() => {
     if (isOpen && run) {
+      setAutoScrollLogs(true);
       setLoadingLogs(true);
       setLoadingAgents(true);
       setLoadingFindings(true);
@@ -1223,25 +1234,55 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
                                 {finding.type}
                               </span>
 
-                              {/* Iteration Badge */}
-                              <span
-                                style={{
-                                  fontSize: '10px',
-                                  fontWeight: 600,
-                                  padding: '2px 6px',
-                                  borderRadius: '4px',
-                                  backgroundColor: '#F1F5F9',
-                                  color: '#475569',
-                                  border: '1px solid #CBD5E1',
-                                }}
-                              >
-                                Iter {finding.iteration || 1}
-                              </span>
+                                <span
+                                  style={{
+                                    fontSize: '10px',
+                                    fontWeight: 600,
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                    backgroundColor: '#F1F5F9',
+                                    color: '#475569',
+                                    border: '1px solid #CBD5E1',
+                                  }}
+                                >
+                                  Iter {finding.iteration || 1}
+                                </span>
 
-                              {/* Title */}
-                              <span style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A' }}>
-                                {finding.title}
-                              </span>
+                                {/* Status Badge */}
+                                <span
+                                  style={{
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                    backgroundColor: finding.status === 'RESOLVED' ? '#F0FDF4' : '#FEF2F2',
+                                    color: finding.status === 'RESOLVED' ? '#16A34A' : '#DC2626',
+                                    border: `1px solid ${finding.status === 'RESOLVED' ? '#BBF7D0' : '#FECACA'}`,
+                                  }}
+                                >
+                                  {finding.status}
+                                </span>
+
+                                {finding.status === 'RESOLVED' && finding.resolved_iteration && (
+                                  <span
+                                    style={{
+                                      fontSize: '10px',
+                                      fontWeight: 600,
+                                      padding: '2px 6px',
+                                      borderRadius: '4px',
+                                      backgroundColor: '#F0FDF4',
+                                      color: '#16A34A',
+                                      border: '1px solid #BBF7D0',
+                                    }}
+                                  >
+                                    Fixed Iter {finding.resolved_iteration}
+                                  </span>
+                                )}
+
+                                {/* Title */}
+                                <span style={{ fontSize: '12px', fontWeight: 600, color: '#0F172A' }}>
+                                  {finding.title}
+                                </span>
 
                               {/* File & Line */}
                               {finding.file_path && (
@@ -1643,7 +1684,7 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
               </div>
             </div>
 
-            <div className="terminal-panel">
+            <div className="terminal-panel" ref={terminalPanelRef} onScroll={handleTerminalScroll}>
               {stdoutText || stderrText ? (
                 <>
                   {stdoutText && (
@@ -1656,7 +1697,6 @@ export const RunDetailModal: React.FC<RunDetailModalProps> = ({
                       {stderrText}
                     </div>
                   )}
-                  <div ref={terminalEndRef} />
                 </>
               ) : (
                 <div className="terminal-empty">

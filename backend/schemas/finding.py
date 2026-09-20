@@ -17,6 +17,9 @@ class FindingResponse(BaseModel):
     reproduction: Optional[str] = None
     remediation: Optional[str] = None
     status: str
+    iteration: int = 1
+    resolved_iteration: Optional[int] = None
+    resolved_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 
@@ -27,5 +30,7 @@ class FindingsSummaryResponse(BaseModel):
     total: int
     breaker_count: int
     security_count: int
+    open_count: int = 0
+    resolved_count: int = 0
     by_severity: Dict[str, int]
     by_category: Dict[str, int]

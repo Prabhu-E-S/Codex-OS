@@ -32,6 +32,8 @@ class Finding(Base):
     # Status: OPEN, CONFIRMED, RESOLVED, DISMISSED
     status = Column(String(50), nullable=False, default="OPEN")
     iteration = Column(Integer, nullable=False, default=1)
+    resolved_iteration = Column(Integer, nullable=True)
+    resolved_at = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(

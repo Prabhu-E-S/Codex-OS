@@ -123,6 +123,8 @@ class ControlRoomFinding(BaseModel):
     remediation: Optional[str] = None
     status: str
     iteration: int
+    resolved_iteration: Optional[int] = None
+    resolved_at: Optional[datetime] = None
     agent_type: Optional[str] = None
     created_at: datetime
 

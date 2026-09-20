@@ -64,6 +64,22 @@ def _migrate_schema():
                         logger.info("Schema migrated: added column 'iteration' to findings")
                     except Exception as exc:
                         logger.warning(f"Failed to add iteration to findings: {exc}")
+            if "resolved_iteration" not in finding_cols:
+                with engine.connect() as conn:
+                    try:
+                        conn.execute(text("ALTER TABLE findings ADD COLUMN resolved_iteration INTEGER NULL"))
+                        conn.commit()
+                        logger.info("Schema migrated: added column 'resolved_iteration' to findings")
+                    except Exception as exc:
+                        logger.warning(f"Failed to add resolved_iteration to findings: {exc}")
+            if "resolved_at" not in finding_cols:
+                with engine.connect() as conn:
+                    try:
+                        conn.execute(text("ALTER TABLE findings ADD COLUMN resolved_at TIMESTAMP NULL"))
+                        conn.commit()
+                        logger.info("Schema migrated: added column 'resolved_at' to findings")
+                    except Exception as exc:
+                        logger.warning(f"Failed to add resolved_at to findings: {exc}")
     except Exception as e:
         logger.warning(f"Schema migration check skipped: {e}")
 
@@ -88,7 +104,6 @@ async def lifespan(app: FastAPI):
             process_manager.cancel(run_id)
     except Exception as e:
         logger.error(f"Error during shutdown cleanup: {e}")
-
 
 app = FastAPI(
     title=settings.PROJECT_NAME,

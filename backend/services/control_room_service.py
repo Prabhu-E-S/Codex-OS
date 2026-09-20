@@ -331,6 +331,8 @@ class ControlRoomService:
                     remediation=f.remediation,
                     status=f.status,
                     iteration=f.iteration,
+                    resolved_iteration=getattr(f, "resolved_iteration", None),
+                    resolved_at=getattr(f, "resolved_at", None),
                     agent_type=agent_type,
                     created_at=f.created_at,
                 )

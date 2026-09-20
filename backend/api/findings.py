@@ -59,6 +59,8 @@ def get_run_findings_summary(run_id: int, db: Session = Depends(get_db)):
     total = len(findings)
     breaker_count = sum(1 for f in findings if f.type == "BREAKER")
     security_count = sum(1 for f in findings if f.type == "SECURITY")
+    open_count = sum(1 for f in findings if (f.status or "OPEN").upper() != "RESOLVED")
+    resolved_count = sum(1 for f in findings if (f.status or "OPEN").upper() == "RESOLVED")
 
     by_severity = dict(Counter(f.severity for f in findings))
     by_category = dict(Counter(f.category for f in findings))
@@ -67,6 +69,8 @@ def get_run_findings_summary(run_id: int, db: Session = Depends(get_db)):
         total=total,
         breaker_count=breaker_count,
         security_count=security_count,
+        open_count=open_count,
+        resolved_count=resolved_count,
         by_severity=by_severity,
         by_category=by_category,
     )

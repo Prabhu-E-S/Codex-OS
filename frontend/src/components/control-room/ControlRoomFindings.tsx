@@ -148,6 +148,14 @@ export const ControlRoomFindings: React.FC<ControlRoomFindingsProps> = ({ findin
                       {f.type}
                     </span>
                     <span className="badge-iter">Iter {f.iteration}</span>
+                    <span className={`badge-status status-${(f.status || 'open').toLowerCase()}`}>
+                      {f.status}
+                    </span>
+                    {f.status === 'RESOLVED' && f.resolved_iteration && (
+                      <span className="badge-resolved-iter">
+                        Fixed in Iter {f.resolved_iteration}
+                      </span>
+                    )}
                     <span className="cr-finding-title">{f.title}</span>
                   </div>
 
